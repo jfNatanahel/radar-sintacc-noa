@@ -5,6 +5,7 @@ Un Actor, dos operaciones (parámetro `operation`):
 - "inference": Producto 2 (pendiente).
 """
 
+import io
 import time
 from datetime import datetime, timezone
 
@@ -56,12 +57,41 @@ async def analytics(entrada: dict) -> None:
                           + [{"tabla": "kpi_provincia", "fecha_corrida": fecha, **k}
                              for k in resumen["oferta_por_provincia"]])
 
-    # Key-value store: archivos descargables (CSV para Tableau, JSON con todos los indicadores)
+    # Key-value store de la corrida: archivos descargables
     await Actor.set_value("RESUMEN", resumen)
     await Actor.set_value("productos.csv", ml.to_csv(index=False), content_type="text/csv")
     await Actor.set_value("locales.csv", maps.to_csv(index=False), content_type="text/csv")
 
+    # Key-value store con nombre fijo: siempre la misma URL, para que Google Sheets (IMPORTDATA)
+    # y Tableau lean la última versión sin pasar fila por fila por Make.
+    await publicar(ml, maps, resumen, fecha)
+
     Actor.log.info(f"Listo en {time.time() - inicio:.1f} s")
+
+
+STORE_PUBLICO = "radar-sintacc"
+
+
+async def publicar(ml: pd.DataFrame, maps: pd.DataFrame, resumen: dict, fecha: str) -> None:
+    store = await Actor.open_key_value_store(name=STORE_PUBLICO)
+    await store.set_value("productos.csv", ml.to_csv(index=False), content_type="text/csv")
+    await store.set_value("locales.csv", maps.to_csv(index=False), content_type="text/csv")
+    await store.set_value("RESUMEN", resumen)
+
+    # Historial: cada corrida agrega sus indicadores por categoría con la fecha.
+    # Así se ven los cambios de precio semana a semana (el dolor de Diana: "llego tarde").
+    kpis = pd.DataFrame(resumen["precio_kg_por_categoria"])
+    kpis.insert(0, "fecha_corrida", fecha)
+    anterior = await store.get_value("historial_kpi.csv")
+    if isinstance(anterior, bytes):
+        anterior = anterior.decode("utf-8")
+    if anterior:
+        previo = pd.read_csv(io.StringIO(anterior))
+        kpis = pd.concat([previo[previo["fecha_corrida"] != fecha], kpis], ignore_index=True)
+    await store.set_value("historial_kpi.csv", kpis.to_csv(index=False), content_type="text/csv")
+
+    Actor.log.info(f"Publicado en el store '{STORE_PUBLICO}': productos.csv, locales.csv, "
+                   f"historial_kpi.csv ({len(kpis)} filas), RESUMEN")
 
 
 async def main() -> None:
