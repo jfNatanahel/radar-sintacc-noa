@@ -1,0 +1,11 @@
+{
+    "$schema": "https://apify.com/schemas/v1/actor.ide.json",
+    "actorSpecification": 1,
+    "name": "radar-sintacc-noa",
+    "title": "Radar Sin TACC · Inteligencia competitiva NOA",
+    "description": "Precios de insumos sin TACC (Mercado Libre) y oferta sin TACC en locales de Salta, Jujuy y La Rioja (Google Maps). Operaciones: analytics e inference.",
+    "version": "0.1",
+    "buildTag": "latest",
+    "input": "./input_schema.json",
+    "dockerfile": "../Dockerfile"
+}
