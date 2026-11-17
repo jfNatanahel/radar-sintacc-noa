@@ -18,8 +18,9 @@ Un Actor, dos operaciones:
 Make (programado, semanal)
   └─> Actor  {operation: "analytics"}
         extraer.py   CSV de Drive  ó  extractores de Apify (Mercado Libre + Google Maps)
-        etl_ml.py    limpieza + 10 features + precio/kg + outliers
+        etl_ml.py    limpieza + exclusiones + correcciones manuales + features + precio/kg + outliers
         etl_maps.py  limpieza + features + sin TACC (confirmado / por búsqueda) + competencia a 2 km
+        muestra.py   90 % de trabajo / 10 % reservado (semilla 42, por grupo), igual que el Colab
         eda.py       indicadores de negocio
         reglas.py    reglas de negocio (palabras clave, umbrales, provincias), separadas del código
   └─> Dataset (filas con columna `tabla`) ──> Make ──> Google Sheets ──> Tableau
@@ -51,19 +52,32 @@ Make (programado, semanal)
 
 **Dataset**: una fila por registro; la columna `tabla` indica a qué tabla pertenece:
 
-- `productos`: publicación limpia con features, `precio_por_kg`, `peso_imputado` y `outlier_precio_kg`
-- `locales`: local limpio con `sin_tacc_confirmado`, `sin_tacc_busqueda`, `sin_tacc_2km` y `locales_2km`
+- `productos`: una publicación limpia. Columna `muestra` = `trabajo` (90 %) o `reservado` (10 %).
+  - Features del modelo (5): `peso_log`, `unidades_log`, `envio_gratis`, `descuento_pct`, `categoria`. Objetivo: `log1p(precio)`.
+  - Para el dashboard: `venta_por_mayor`, `cantidad_vendida`, `cantidad_evaluaciones`, `tienda_oficial`, `precio_por_kg`, `peso_imputado`, `outlier_precio_kg` (y `peso_total_kg`, `unidades_pack`, `stock_bajo`).
+- `locales`: un local limpio, con `muestra`.
+  - Features del modelo (7): `fotos_log`, `sin_tacc_2km`, `sin_tacc_busqueda`, `sin_tacc_confirmado`, `calificacion`, `tipo_local`, `provincia`. Objetivo: `log1p(resenas)`.
+  - Para el dashboard: `latitud`, `longitud`, `resenas`, `grupo_sin_tacc` (confirmado / busqueda / ninguno, para el color del mapa).
 - `kpi_categoria`: precio/kg minorista y mayorista y % de ahorro por categoría
 - `kpi_provincia`: locales y % con sin TACC confirmado por provincia
+- `kpi_demanda`: mediana de reseñas por grupo sin TACC, total y por provincia
+
+`tipo_local`, `provincia` y `categoria` se pasan a columnas de 0 y 1 recién al entrenar el modelo (Producto 2). Al evaluar con el 10 % reservado se aplican las mismas transformaciones.
 
 Todas llevan `fecha_corrida`: cada ejecución semanal suma historia, y eso permite ver cambios de precio.
 
-**Key-value store**: `RESUMEN` (todos los indicadores en JSON, incluidos los más vendidos y las zonas sin oferta), `productos.csv` y `locales.csv`.
+**Key-value store**: `RESUMEN` (todos los indicadores en JSON, incluidos los más vendidos y las zonas sin oferta, y los números de `controles`), `productos.csv` y `locales.csv`.
+
+Con los CSV del 12/11 los controles tienen que dar lo mismo que el Colab: 831 publicaciones (748 de trabajo, 91 por mayor, 85 con peso imputado, 19 outliers) y 407 locales (366 de trabajo, 10 confirmados, 90 por búsqueda). Lo verifica `tests/test_controles.py`.
 
 ## Decisiones de datos
 
-- **Peso y pack** salen del título con reglas (`parseo.py`), probadas con títulos reales en `tests/test_parseo.py`. Si el peso de una unidad no figura o es imposible, se completa con la mediana de su categoría y queda marcado en `peso_imputado`.
-- **Precio/kg** se usa para el análisis, no como feature del modelo (depende del precio, que es la variable objetivo). Los valores fuera del rango intercuartílico de su categoría se marcan en `outlier_precio_kg` y no entran en los indicadores.
+Todas acordadas con Data Science (registro de decisiones en la Documentación del CAPSTONE, 15/11 y 16/11).
+
+- **Orden:** limpieza → sorteo del 10 % → exclusiones → lectura del título → correcciones manuales → venta por mayor → peso faltante → precio/kg → outliers.
+- **Peso y pack** salen del título con reglas (`parseo.py`), probadas con títulos reales en `tests/test_parseo.py`. En "3 x 5 kg" el peso es el de una unidad. Si el peso de una unidad no figura, se completa con la mediana de su categoría (calculada solo con el 90 %) y queda marcado en `peso_imputado`.
+- **Correcciones manuales y exclusiones** (13 publicaciones corregidas y 8 excluidas, revisadas una por una) están en `reglas.py`, por código de publicación.
+- **Precio/kg** se usa para el análisis, no como feature del modelo (depende del precio, que es la variable objetivo). Se marca `outlier_precio_kg` con límites fijos por categoría (`reglas.LIMITES_PRECIO_KG`); no se elimina ninguna fila y los marcados no entran en los indicadores.
 - **Sin TACC** tiene dos niveles. Es *confirmado* si el nombre o la categoría lo dicen. Es *por búsqueda* si el local solo apareció al buscar "sin tacc" en Google, que también devuelve locales cercanos no aptos. La competencia a 2 km cuenta solo los confirmados.
 - Si un extractor devuelve 0 filas o le faltan columnas (por ejemplo, porque cambió la página), el Actor falla con un mensaje claro en lugar de publicar datos rotos.
 
@@ -78,7 +92,7 @@ Todas llevan `fecha_corrida`: cada ejecución semanal suma historia, y eso permi
 
 ```bash
 pip install -r requirements.txt
-python -m pytest -q          # tests de parseo
+RADAR_ML_CSV=ml.csv RADAR_MAPS_CSV=maps.csv python -m pytest -q   # parseo + controles
 apify run --input '{"operation":"analytics","source":"csv","mlCsvUrl":"data/ml.csv","mapsCsvUrl":"data/maps.csv"}'
 ```
 
@@ -86,6 +100,6 @@ apify run --input '{"operation":"analytics","source":"csv","mlCsvUrl":"data/ml.c
 
 ```
 .actor/        actor.json, input_schema.json
-src/           main.py · extraer.py · etl_ml.py · etl_maps.py · eda.py · parseo.py · reglas.py
-tests/         test_parseo.py
+src/           main.py · extraer.py · etl_ml.py · etl_maps.py · muestra.py · eda.py · parseo.py · reglas.py
+tests/         test_parseo.py · test_controles.py
 ```

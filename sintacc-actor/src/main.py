@@ -48,14 +48,16 @@ async def analytics(entrada: dict) -> None:
     maps, pasos = etl_maps.procesar(maps_crudo)
     resumen = eda.resumen(ml, maps, pasos)
     resumen["fecha_corrida"] = fecha
-    Actor.log.info(f"Limpios: {len(ml)} publicaciones, {len(maps)} locales")
+    Actor.log.info(f"Limpios: {len(ml)} publicaciones, {len(maps)} locales. Controles: {resumen['controles']}")
 
     # Dataset: una fila por registro, con la columna `tabla` para separarlas en Make
     await Actor.push_data(_filas(ml, "productos", fecha) + _filas(maps, "locales", fecha)
                           + [{"tabla": "kpi_categoria", "fecha_corrida": fecha, **k}
                              for k in resumen["precio_kg_por_categoria"]]
                           + [{"tabla": "kpi_provincia", "fecha_corrida": fecha, **k}
-                             for k in resumen["oferta_por_provincia"]])
+                             for k in resumen["oferta_por_provincia"]]
+                          + [{"tabla": "kpi_demanda", "fecha_corrida": fecha, **k}
+                             for k in resumen["demanda_por_grupo"]])
 
     # Key-value store de la corrida: archivos descargables
     await Actor.set_value("RESUMEN", resumen)

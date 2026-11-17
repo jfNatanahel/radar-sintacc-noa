@@ -1,20 +1,36 @@
-"""ETL del Dataset 1: Mercado Libre (insumos sin TACC)."""
+"""ETL del Dataset 1: Mercado Libre (insumos sin TACC).
+
+Orden acordado con Data Science (16/11):
+limpieza -> sorteo del 10 % -> exclusiones -> lectura del título -> correcciones manuales
+-> venta por mayor -> peso faltante (mediana de la unidad de la categoría, solo con el 90 %)
+-> precio por kg -> marca de outliers (límites fijos).
+"""
 
 import numpy as np
 import pandas as pd
 
 from . import reglas
-from .parseo import peso_unidad_kg, unidades_pack
+from .muestra import sortear
+from .parseo import normalizar, peso_unidad_kg, unidades_pack
 
 
 def limpiar(crudo: pd.DataFrame) -> pd.DataFrame:
     """Unifica categorías, saca duplicados y deja solo los insumos del proyecto."""
     ml = crudo.copy()
+    ml["idPublicacion"] = ml["idPublicacion"].astype(str).str.strip()
     ml["categoria"] = ml["categoria"].astype(str).str.replace(r"\d", "", regex=True).str.strip()
     ml = ml.drop_duplicates(subset="idPublicacion")
     ml = ml[ml["produtoDomainID"].isin(reglas.CATEGORIAS_ML_OK)]
     ml = ml[~ml["articuloTitulo"].str.lower().str.contains(reglas.EXCLUIR_ML)]
     return ml.reset_index(drop=True)
+
+
+def excluir(ml: pd.DataFrame) -> pd.DataFrame:
+    """Exclusiones del 16/11, aplicadas después del sorteo (misma regla para el 90 % y el 10 %)."""
+    titulo = ml["articuloTitulo"].map(normalizar)
+    nugget = titulo.str.contains(reglas.EXCLUIR_NUGGET) & ~titulo.str.contains(reglas.SALVA_NUGGET)
+    fuera = ml["idPublicacion"].isin(reglas.EXCLUIR_IDS_ML)
+    return ml[~(nugget | fuera)].reset_index(drop=True)
 
 
 def _a_numero(serie: pd.Series) -> pd.Series:
@@ -26,22 +42,33 @@ def _a_bool(serie: pd.Series) -> pd.Series:
 
 
 def crear_features(ml: pd.DataFrame) -> pd.DataFrame:
-    """Crea las 10 features + precio_por_kg y marca valores dudosos."""
+    """Crea las features, precio_por_kg y las marcas de calidad (peso_imputado, outlier_precio_kg)."""
     ml = ml.copy()
     ml["precio"] = _a_numero(ml["nuevoPrecio"])
-    ml = ml[ml["precio"] > 0]
+    ml = ml[ml["precio"] > 0].copy()
 
+    # 1. Lectura del título
     ml["peso_unidad_kg"] = ml["articuloTitulo"].apply(peso_unidad_kg)
     ml["unidades_pack"] = ml["articuloTitulo"].apply(unidades_pack)
-    # Peso imposible = mal leído -> se trata como vacío
     fuera = ~ml["peso_unidad_kg"].between(reglas.PESO_MIN_KG, reglas.PESO_MAX_KG)
-    ml.loc[fuera, "peso_unidad_kg"] = np.nan
-    # Si falta, se usa la mediana del peso de UNA unidad de su categoría (y después se multiplica por el pack)
+    ml.loc[fuera, "peso_unidad_kg"] = np.nan  # peso imposible = mal leído
+
+    # 2. Correcciones manuales verificadas por DS
+    ids = ml["idPublicacion"]
+    pack = ids.map(reglas.CORRECCION_PACK)
+    ml["unidades_pack"] = pack.fillna(ml["unidades_pack"]).astype(int)
+    peso = ids.map(reglas.CORRECCION_PESO_KG)
+    ml["peso_unidad_kg"] = peso.fillna(ml["peso_unidad_kg"])
+
+    # 3. Venta por mayor
+    ml["venta_por_mayor"] = (ml["unidades_pack"] >= reglas.UNIDADES_MAYORISTA).astype(int)
+
+    # 4. Peso faltante: mediana del peso de UNA unidad de la categoría, calculada SOLO con el 90 %
     ml["peso_imputado"] = ml["peso_unidad_kg"].isna().astype(int)
-    ml["peso_unidad_kg"] = ml.groupby("categoria")["peso_unidad_kg"].transform(lambda x: x.fillna(x.median()))
+    medianas = ml[ml["muestra"] == "trabajo"].groupby("categoria")["peso_unidad_kg"].median()
+    ml["peso_unidad_kg"] = ml["peso_unidad_kg"].fillna(ml["categoria"].map(medianas))
     ml["peso_total_kg"] = ml["peso_unidad_kg"] * ml["unidades_pack"]
 
-    ml["venta_por_mayor"] = (ml["unidades_pack"] >= reglas.UNIDADES_MAYORISTA).astype(int)
     ml["descuento_pct"] = ml["precioDiscount"].astype(str).str.extract(r"(\d+)")[0].astype(float).fillna(0)
     ml["envio_gratis"] = _a_bool(ml["envioGratis"])
     ml["tienda_oficial"] = _a_bool(ml["esTiendaOficial"])
@@ -49,25 +76,30 @@ def crear_features(ml: pd.DataFrame) -> pd.DataFrame:
     ml["cantidad_evaluaciones"] = _a_numero(ml["numeroEvaluaciones"]).fillna(0)
     ml["stock_bajo"] = ml["highlight"].astype(str).str.upper().str.contains("ÚLTIMA").astype(int)
 
-    # Solo para análisis de competitividad: NO es feature del modelo (depende del precio)
-    ml["precio_por_kg"] = ml["precio"] / ml["peso_total_kg"]
-    ml["outlier_precio_kg"] = _marcar_outliers(ml, "precio_por_kg", "categoria")
+    # Features del modelo en logaritmo (Bloque 5): peso_log y unidades_log. Objetivo: log1p(precio).
+    ml["peso_log"] = np.log1p(ml["peso_total_kg"])
+    ml["unidades_log"] = np.log1p(ml["unidades_pack"])
 
-    columnas = ["idPublicacion", "articuloTitulo", "categoria", "precio", "peso_total_kg",
-                "unidades_pack", "venta_por_mayor", "descuento_pct", "envio_gratis",
-                "tienda_oficial", "cantidad_vendida", "cantidad_evaluaciones", "stock_bajo",
-                "precio_por_kg", "peso_imputado", "outlier_precio_kg"]
+    # 5. Solo para análisis de competitividad: NO es feature del modelo (depende del precio)
+    ml["precio_por_kg"] = ml["precio"] / ml["peso_total_kg"]
+    limites = ml["categoria"].map(reglas.LIMITES_PRECIO_KG)
+    bajo = limites.map(lambda x: x[0] if isinstance(x, tuple) else np.nan)
+    alto = limites.map(lambda x: x[1] if isinstance(x, tuple) else np.nan)
+    ml["outlier_precio_kg"] = (~ml["precio_por_kg"].between(bajo, alto)).astype(int)
+
+    columnas = [
+        "idPublicacion", "articuloTitulo", "categoria", "muestra", "precio",
+        # features del modelo (5): peso_log, unidades_log, envio_gratis, descuento_pct, categoria
+        "peso_log", "unidades_log", "envio_gratis", "descuento_pct",
+        # columnas que el dashboard necesita aunque no sean features (Bloque 5, punto 9)
+        "peso_total_kg", "unidades_pack", "venta_por_mayor", "tienda_oficial",
+        "cantidad_vendida", "cantidad_evaluaciones", "stock_bajo",
+        "precio_por_kg", "peso_imputado", "outlier_precio_kg",
+    ]
     return ml[columnas].reset_index(drop=True)
 
 
-def _marcar_outliers(df: pd.DataFrame, col: str, grupo: str) -> pd.Series:
-    """1 si el valor está fuera del rango intercuartílico ampliado de su grupo."""
-    def regla(x):
-        q1, q3 = x.quantile([0.25, 0.75])
-        k = reglas.IQR_K * (q3 - q1)
-        return (~x.between(q1 - k, q3 + k)).astype(int)
-    return df.groupby(grupo)[col].transform(regla)
-
-
 def procesar(crudo: pd.DataFrame) -> pd.DataFrame:
-    return crear_features(limpiar(crudo))
+    limpio = limpiar(crudo)
+    limpio["muestra"] = sortear(limpio, reglas.ESTRATOS_ML)
+    return crear_features(excluir(limpio))

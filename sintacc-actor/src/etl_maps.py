@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from . import reglas
+from .muestra import sortear
 
 
 def _texto(df: pd.DataFrame, *cols: str) -> pd.Series:
@@ -30,6 +31,8 @@ def marcar_sin_tacc(crudo: pd.DataFrame) -> pd.DataFrame:
         df["sin_tacc_busqueda"] |= df["sin_tacc"].astype(str).str.lower().eq("true")
     for c in ["sin_tacc_confirmado", "sin_tacc_busqueda"]:
         df[c] = df.groupby("placeId")[c].transform("max")
+    # Búsqueda = evidencia débil: solo si NO está confirmado (las dos marcas no se superponen)
+    df["sin_tacc_busqueda"] &= ~df["sin_tacc_confirmado"]
     return df
 
 
@@ -101,21 +104,37 @@ def crear_features(df: pd.DataFrame) -> pd.DataFrame:
     df["cantidad_fotos"] = df.get("imagesCount", 0)
     df["sin_tacc_confirmado"] = df["sin_tacc_confirmado"].astype(int)
     df["sin_tacc_busqueda"] = df["sin_tacc_busqueda"].astype(int)
+    df["fotos_log"] = np.log1p(df["cantidad_fotos"])
+    # Color del mapa del dashboard: confirmado / búsqueda (evidencia débil) / ninguno
+    df["grupo_sin_tacc"] = np.select([df["sin_tacc_confirmado"] == 1, df["sin_tacc_busqueda"] == 1],
+                                     ["confirmado", "busqueda"], "ninguno")
 
-    # Competencia cercana: solo cuentan los locales con sin TACC confirmado
+    # Competencia cercana: locales con sin TACC CONFIRMADO a menos de 2 km, sin contar el propio.
+    # Como en el Colab, solo cuentan como vecinos los locales del 90 % de trabajo.
     lat, lon = df["latitud"].to_numpy(float), df["longitud"].to_numpy(float)
     dist = haversine_km(lat[:, None], lon[:, None], lat[None, :], lon[None, :])
-    cerca = (dist < reglas.RADIO_KM) & (df["sin_tacc_confirmado"].to_numpy() == 1)[None, :]
-    np.fill_diagonal(cerca, False)
-    df["sin_tacc_2km"] = cerca.sum(axis=1)
-    df["locales_2km"] = ((dist < reglas.RADIO_KM).sum(axis=1) - 1)
+    np.fill_diagonal(dist, np.inf)
+    trabajo = (df["muestra"] == "trabajo").to_numpy()
+    confirmado = (df["sin_tacc_confirmado"] == 1).to_numpy()
+    cerca = dist < reglas.RADIO_KM
+    df["sin_tacc_2km"] = (cerca & (confirmado & trabajo)[None, :]).sum(axis=1)
+    df["locales_2km"] = (cerca & trabajo[None, :]).sum(axis=1)
 
-    columnas = ["placeId", "title", "provincia", "ciudad", "tipo_local", "resenas", "calificacion",
-                "sin_tacc_confirmado", "sin_tacc_busqueda", "latitud", "longitud",
-                "tiene_sitio_web", "cantidad_fotos", "sin_tacc_2km", "locales_2km"]
+    columnas = [
+        "placeId", "title", "muestra", "resenas",
+        # features del modelo (7): fotos_log, sin_tacc_2km, sin_tacc_busqueda, sin_tacc_confirmado,
+        # calificacion, tipo_local y provincia
+        "fotos_log", "sin_tacc_2km", "sin_tacc_busqueda", "sin_tacc_confirmado",
+        "calificacion", "tipo_local", "provincia",
+        # columnas para el dashboard (mapa) y para el análisis (Bloque 5, punto 9)
+        "latitud", "longitud", "grupo_sin_tacc", "ciudad", "cantidad_fotos", "tiene_sitio_web", "locales_2km",
+    ]
     return df[columnas]
 
 
 def procesar(crudo: pd.DataFrame) -> tuple[pd.DataFrame, list[tuple[str, int]]]:
     limpio, pasos = limpiar(crudo)
+    limpio["sin_tacc_confirmado"] = limpio["sin_tacc_confirmado"].astype(int)
+    limpio["muestra"] = sortear(limpio, reglas.ESTRATOS_MAPS)
+    pasos.append(("90 % de trabajo (10 % reservado aparte)", int((limpio["muestra"] == "trabajo").sum())))
     return crear_features(limpio), pasos

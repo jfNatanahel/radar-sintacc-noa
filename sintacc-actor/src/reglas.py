@@ -27,14 +27,57 @@ CATEGORIAS_ML_OK = [
 EXCLUIR_ML = ("pancake|omelette|falafel|levadura|huevo en polvo|alfajor|"
               "hamburguesa|buñuelo|pancho|salchicha")
 
+# "nugget" sin "tacc", "gluten" o "celíaco" en el título queda afuera (DS, 16/11)
+EXCLUIR_NUGGET = r"nugget"
+SALVA_NUGGET = r"tacc|gluten|celiac"
+
+# Publicaciones fuera de alcance revisadas a mano por DS el 16/11 (se aplican después del sorteo)
+EXCLUIR_IDS_ML = {
+    "MLA1420223627",  # pan de brea (asfalto)
+    "MLA3883705424", "MLA2046043949",  # Molto X5 y X10
+    "MLA1410486463",  # queso crema Tonadita
+    "MLA3650583606",  # panko blanco
+    "MLA880878959", "MLA843051276",  # Green Mills 350 g y 650 g
+}
+
+# Correcciones manuales verificadas en la publicación (DS, 16/11). Se aplican después de leer el título.
+# unidades_pack: el precio es el de UNA unidad aunque el título diga pack, o el pack estaba mal leído.
+CORRECCION_PACK = {
+    "MLA1695005069": 1, "MLA3190142942": 1, "MLA2100085831": 1,
+    "MLA3190389606": 1, "MLA4000481502": 1,
+    "MLA1702182943": 12, "MLA3914510774": 3,
+}
+# peso de UNA unidad, en kg
+CORRECCION_PESO_KG = {
+    "MLA3785133802": 25, "MLA1110405149": 15, "MLA1587586569": 15,
+    "MLA1606756347": 0.45, "MLA1606703695": 0.45,  # la segunda es inferida de la primera (no disponible)
+    "MLA3342451372": 0.5, "MLA1702182943": 0.21, "MLA3914510774": 1,
+}
+
 # Desde cuántas unidades se considera compra por mayor
 UNIDADES_MAYORISTA = 5
 
 # Pesos fuera de este rango (kg) se consideran mal leídos del título
 PESO_MIN_KG, PESO_MAX_KG = 0.05, 50
 
-# Un precio/kg fuera de [Q1 - k*IQR, Q3 + k*IQR] de su categoría se marca outlier
-IQR_K = 1.5
+# Límites FIJOS de precio por kg ($) por categoría: Q1 - 1,5 IQR y Q3 + 1,5 IQR en logaritmo,
+# calculados por DS con el 90 % de trabajo (16/11). Fuera de este rango -> outlier_precio_kg = 1.
+# Es solo una marca para el dashboard: no se elimina ninguna fila.
+LIMITES_PRECIO_KG = {
+    "fideos": (7_328, 51_668),
+    "harina": (1_558, 38_722),
+    "pan": (9_358, 126_980),
+    "premezcla": (3_291, 32_253),
+    "rebozador": (5_325, 50_365),
+}
+
+# ---------------------------------------------------------------- Muestra 90 / 10
+# El 10 % se reserva para evaluar el modelo del Producto 2 (nunca se usa para elegir features).
+# Sorteo al azar con semilla fija, dentro de cada grupo, igual que en el Colab.
+SEMILLA = 42
+FRACCION_RESERVA = 0.10
+ESTRATOS_ML = ["categoria"]
+ESTRATOS_MAPS = ["provincia", "sin_tacc_confirmado"]
 
 # ---------------------------------------------------------------- Google Maps
 PROVINCIAS = {"Salta": "Salta", "Jujuy": "San Salvador de Jujuy", "La Rioja": "La Rioja"}

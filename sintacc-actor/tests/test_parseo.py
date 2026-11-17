@@ -19,6 +19,12 @@ PESOS = [
     ("Harina De Arroz Integral Organico 1,5 kg", 1.5),
     ("Fideos Spaghetti Libre De Gluten Matarazzo X500g", 0.5),
     ("Pack 5 Harina De Maní - Natural Pop - Sin Tacc", None),
+    # Reglas finales del 16/11
+    ("Premezcla Verde Santa María 15 Unidades X1k C/u Sin Tacc", 1.0),          # "k" = kilo
+    ("Harina De Arroz Dicomere X 1 K Pack X 6 Unidades Sin Tacc", 1.0),
+    ("Premezcla Libre De Gluten 15 Kgs. Glutal 3x5 Kg. Panificados", 5.0),     # "N x peso": peso de la unidad
+    ("Harina De Avena Cumana Libre De Gluten Sin Tacc 10 X 400 G", 0.4),
+    ("2x Rebozador De Arroz Integral Con Sal All Rice 250gc/u - Fw", 0.25),    # "c/u" pegado al peso
 ]
 
 PACKS = [
@@ -39,6 +45,18 @@ PACKS = [
     ("Harina Almendra Top Class X 300 Grs", 1),
     ("Fideos Spaghetti Libre De Gluten Matarazzo X500g", 1),
     ("Pack X 5 Rebozador De Arroz Natuzen X 240grs", 5),
+    # Reglas finales del 16/11
+    ("Premezcla Celíacos Especial Panificados Glutal 3 X 5 Kgs.", 3),
+    ("Harina De Avena Cumana Libre De Gluten Sin Tacc 10 X 400 G", 10),
+    ("2x Harina De Arroz Integral Organico Dicomere S/tacc 450g Fw", 2),
+    ("3 X Rebozador De Arroz Natuzen Sin Tacc (240gr C/u) - Dw", 3),
+    ("Premezcla Universal  Sin Tacc Delicel X500grs Caja X12unid", 12),
+    ("Premezcla Santa María Deslactosada Sin Tacc 1kg ( X3 Unid )", 3),
+    ("Fideos Arroz Coditos Blue Patna 500g Sin Tacc Huevo 6 Unidad", 6),
+    ("Fideos De Arroz Pamperitos Blue Patna 500gr Sin Tacc 6 Unida Otra Razón", 6),
+    ("Panko Sin Tacc Naccato - Rebozador Sin Tacc 12 Und X 300 Gr", 12),
+    ("Premezcla Universal N°3 Delicel X500gr X1u", 1),                    # "N°3" no es pack
+    ("Fideos Nº 5 Spaghetti 3 x 500g", 3),
 ]
 
 
