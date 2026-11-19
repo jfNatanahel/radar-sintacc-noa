@@ -51,3 +51,12 @@ Se comprobó que estos tests fallan con el código anterior (R1 y R4) y pasan co
 - **Una vez:** correr `scripts/subir_csv_a_apify.py` con el token de Apify (variable de entorno, nunca en el código).
 - **Make:** el módulo "Run an Actor" manda `{"operation": "analytics", "source": "csv"}`. Los campos `mlCsvUrl` y `mapsCsvUrl` ya no se usan y se pueden borrar del escenario.
 - **Imagen del Actor:** `httpx` y `pytest` salieron de `requirements.txt`. Las herramientas de desarrollo están en `requirements-dev.txt`, y los tests y scripts quedan fuera de la imagen (`.dockerignore`).
+
+## Escenario de Make (referencia)
+
+Apify "Run an Actor" (`{"operation": "analytics", "source": "csv"}`, sincrónico, con error handler Rollback) → tres módulos de Google Sheets "Update a Cell" en A1 de `productos`, `locales` e `historial_kpi`.
+
+- **Separador `;`:** la Sheet está en configuración regional de Argentina, así que los argumentos de la fórmula van con punto y coma. Con comas da "error de fórmula" (pasó el 17/11 y el 19/11):
+  `=IMPORTDATA("https://api.apify.com/v2/key-value-stores/<store>/records/<archivo>.csv?signature=<firma>&v={{timestamp}}"; ","; "en_US")`
+- **Firma por archivo:** cada registro del store tiene su propia `signature`. La de un archivo no abre otro (error `insufficient-permissions`). Se copia en Apify → Storage → Key-value stores → `radar-sintacc` → el registro → link para compartir.
+- `"en_US"` hace que los decimales del CSV se lean con punto. `{{timestamp}}` obliga a la Sheet a recargar en el momento.
