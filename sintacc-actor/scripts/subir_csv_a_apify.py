@@ -24,9 +24,10 @@ def main(ml_csv: str, maps_csv: str) -> None:
         sys.exit("Falta la variable de entorno APIFY_TOKEN.")
     cliente = ApifyClient(token)
     store = cliente.key_value_stores().get_or_create(name=STORE_ENTRADA)
+    store_id = store.id if hasattr(store, "id") else store["id"]  # apify-client 3 devuelve un objeto
     for ruta, clave in [(ml_csv, CLAVE_ML), (maps_csv, CLAVE_MAPS)]:
         contenido = Path(ruta).read_bytes()
-        cliente.key_value_store(store["id"]).set_record(clave, contenido, content_type="text/csv")
+        cliente.key_value_store(store_id).set_record(clave, contenido, content_type="text/csv")
         print(f"Subido {ruta} -> {STORE_ENTRADA}/{clave} ({len(contenido) / 1024:.0f} KB)")
 
 
