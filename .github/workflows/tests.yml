@@ -1,0 +1,26 @@
+# Corre los tests del Actor en cada push y pull request.
+# Incluye tests/test_lineamientos.py: si alguien rompe R1, R2 o R4, el check queda en rojo.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sintacc-actor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"   # la misma que la imagen del Actor (apify/actor-python:3.12)
+          cache: pip
+          cache-dependency-path: sintacc-actor/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q

@@ -1,3 +1,5 @@
-apify >= 4.0.0, < 5.0.0
-pandas >= 2.2
-numpy >= 1.26
+# Versiones fijas: cada build del Actor usa exactamente las mismas librerías que los tests
+# (reproducibilidad). Para actualizar: cambiar acá, correr los tests y hacer el build.
+apify==4.3.0
+pandas==3.0.5
+numpy==2.5.3

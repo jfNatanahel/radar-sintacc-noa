@@ -1,5 +1,7 @@
 # Radar Sin TACC · NOA
 
+![tests](https://github.com/jfNatanahel/radar-sintacc-noa/actions/workflows/tests.yml/badge.svg)
+
 Inteligencia competitiva para insumos sin TACC en Salta, Jujuy y La Rioja. Cruza los precios de insumos de Mercado Libre con la oferta sin TACC de los locales gastronómicos en Google Maps.
 
 Capstone del Samsung Innovation Campus 2026 · Equipo DataPatitos: Valentina (BIZ), Jose (DS) y Natanahel (SE).
@@ -21,6 +23,7 @@ Make (programado) ──> Actor de Apify  {operation: "analytics" | "inference"}
 ```
 sintacc-actor/   el Actor de Apify (código, tests y README con input, output y decisiones de datos)
 docs/            lineamientos.md: cumplimiento de las reglas R1 a R4 del Actor
+.github/         tests automáticos en cada push (GitHub Actions)
 ```
 
 El build de Apify apunta a la carpeta `sintacc-actor` (`#main:sintacc-actor`).

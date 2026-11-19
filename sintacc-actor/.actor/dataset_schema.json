@@ -1,0 +1,224 @@
+{
+    "actorSpecification": 1,
+    "fields": {},
+    "views": {
+        "insights": {
+            "title": "Semáforo de compra (inference)",
+            "description": "Filas con tabla = insights. Una por publicación de Mercado Libre.",
+            "transformation": {
+                "fields": [
+                    "tabla",
+                    "semaforo",
+                    "articuloTitulo",
+                    "categoria",
+                    "venta_por_mayor",
+                    "precio",
+                    "precio_por_kg",
+                    "referencia_kg",
+                    "diferencia_pct",
+                    "ahorro_por_kg",
+                    "motivo",
+                    "metodo",
+                    "idPublicacion",
+                    "fecha_corrida"
+                ]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "semaforo": {
+                        "label": "Semáforo"
+                    },
+                    "articuloTitulo": {
+                        "label": "Publicación"
+                    },
+                    "categoria": {
+                        "label": "Categoría"
+                    },
+                    "venta_por_mayor": {
+                        "label": "Por mayor",
+                        "format": "boolean"
+                    },
+                    "precio": {
+                        "label": "Precio ($)",
+                        "format": "number"
+                    },
+                    "precio_por_kg": {
+                        "label": "$/kg",
+                        "format": "number"
+                    },
+                    "referencia_kg": {
+                        "label": "$/kg normal",
+                        "format": "number"
+                    },
+                    "diferencia_pct": {
+                        "label": "Diferencia %",
+                        "format": "number"
+                    },
+                    "ahorro_por_kg": {
+                        "label": "Ahorro $/kg",
+                        "format": "number"
+                    },
+                    "motivo": {
+                        "label": "Motivo"
+                    }
+                }
+            }
+        },
+        "productos": {
+            "title": "Publicaciones de Mercado Libre (analytics)",
+            "description": "Filas con tabla = productos. muestra = trabajo (90 %) o reservado (10 %).",
+            "transformation": {
+                "fields": [
+                    "tabla",
+                    "articuloTitulo",
+                    "categoria",
+                    "precio",
+                    "peso_total_kg",
+                    "unidades_pack",
+                    "venta_por_mayor",
+                    "precio_por_kg",
+                    "outlier_precio_kg",
+                    "peso_imputado",
+                    "cantidad_vendida",
+                    "muestra",
+                    "idPublicacion",
+                    "fecha_corrida"
+                ]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "precio": {
+                        "format": "number"
+                    },
+                    "peso_total_kg": {
+                        "label": "Peso (kg)",
+                        "format": "number"
+                    },
+                    "unidades_pack": {
+                        "label": "Pack",
+                        "format": "number"
+                    },
+                    "venta_por_mayor": {
+                        "format": "boolean"
+                    },
+                    "precio_por_kg": {
+                        "label": "$/kg",
+                        "format": "number"
+                    },
+                    "outlier_precio_kg": {
+                        "label": "Outlier",
+                        "format": "boolean"
+                    },
+                    "peso_imputado": {
+                        "label": "Peso estimado",
+                        "format": "boolean"
+                    },
+                    "cantidad_vendida": {
+                        "format": "number"
+                    }
+                }
+            }
+        },
+        "locales": {
+            "title": "Locales de Google Maps (analytics)",
+            "description": "Filas con tabla = locales. grupo_sin_tacc = confirmado / busqueda / ninguno.",
+            "transformation": {
+                "fields": [
+                    "tabla",
+                    "title",
+                    "provincia",
+                    "tipo_local",
+                    "grupo_sin_tacc",
+                    "resenas",
+                    "calificacion",
+                    "sin_tacc_2km",
+                    "latitud",
+                    "longitud",
+                    "muestra",
+                    "placeId",
+                    "fecha_corrida"
+                ]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "title": {
+                        "label": "Local"
+                    },
+                    "grupo_sin_tacc": {
+                        "label": "Sin TACC"
+                    },
+                    "resenas": {
+                        "label": "Reseñas",
+                        "format": "number"
+                    },
+                    "calificacion": {
+                        "format": "number"
+                    },
+                    "sin_tacc_2km": {
+                        "label": "Sin TACC a 2 km",
+                        "format": "number"
+                    },
+                    "latitud": {
+                        "format": "number"
+                    },
+                    "longitud": {
+                        "format": "number"
+                    }
+                }
+            }
+        },
+        "indicadores": {
+            "title": "Indicadores (analytics)",
+            "description": "Filas con tabla = kpi_categoria, kpi_provincia o kpi_demanda.",
+            "transformation": {
+                "fields": [
+                    "tabla",
+                    "categoria",
+                    "precio_kg_minorista",
+                    "precio_kg_mayorista",
+                    "ahorro_mayorista_pct",
+                    "provincia",
+                    "grupo_sin_tacc",
+                    "locales",
+                    "pct_confirmado",
+                    "resenas_mediana",
+                    "fecha_corrida"
+                ]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "precio_kg_minorista": {
+                        "label": "$/kg minorista",
+                        "format": "number"
+                    },
+                    "precio_kg_mayorista": {
+                        "label": "$/kg mayorista",
+                        "format": "number"
+                    },
+                    "ahorro_mayorista_pct": {
+                        "label": "Ahorro por mayor %",
+                        "format": "number"
+                    },
+                    "grupo_sin_tacc": {
+                        "label": "Sin TACC"
+                    },
+                    "locales": {
+                        "format": "number"
+                    },
+                    "pct_confirmado": {
+                        "label": "% confirmado",
+                        "format": "number"
+                    },
+                    "resenas_mediana": {
+                        "label": "Mediana reseñas",
+                        "format": "number"
+                    }
+                }
+            }
+        }
+    }
+}

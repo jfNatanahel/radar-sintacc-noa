@@ -45,7 +45,7 @@ El diagnóstico del 19/11 sobre el commit `ffdbc02` encontró dos incumplimiento
 - R2: no hay llamadas a `fit`, `fit_transform` ni `partial_fit`.
 - R4: `main.py` solo define `main`, `analytics` o `inference`, y no importa pandas.
 
-Se comprobó que estos tests fallan con el código anterior (R1 y R4) y pasan con el actual.
+Se comprobó que estos tests fallan con el código anterior (R1 y R4) y pasan con el actual. Corren solos en cada push con GitHub Actions (`.github/workflows/tests.yml`), con Python 3.12 y las mismas versiones fijas que la imagen del Actor.
 
 ## Impacto operativo
 

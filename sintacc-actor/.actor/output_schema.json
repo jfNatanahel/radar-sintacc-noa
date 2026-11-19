@@ -1,0 +1,31 @@
+{
+    "actorOutputSchemaVersion": 1,
+    "title": "Resultados de Radar Sin TACC",
+    "properties": {
+        "insights": {
+            "type": "string",
+            "title": "Semáforo de compra (inference)",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=insights"
+        },
+        "productos": {
+            "type": "string",
+            "title": "Publicaciones de Mercado Libre (analytics)",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=productos"
+        },
+        "locales": {
+            "type": "string",
+            "title": "Locales de Google Maps (analytics)",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=locales"
+        },
+        "indicadores": {
+            "type": "string",
+            "title": "Indicadores (analytics)",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=indicadores"
+        },
+        "archivos": {
+            "type": "string",
+            "title": "Archivos: CSV y RESUMEN",
+            "template": "{{links.apiDefaultKeyValueStoreUrl}}/keys"
+        }
+    }
+}

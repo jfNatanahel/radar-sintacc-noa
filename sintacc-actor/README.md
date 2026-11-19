@@ -15,18 +15,22 @@ Un Actor, dos operaciones:
 ## Arquitectura
 
 ```
-Make (programado, semanal)
-  └─> Actor  {operation: "analytics"}
-        extraer.py   CSV del key-value store `radar-sintacc-entrada`  ó  extractores de Apify (Mercado Libre + Google Maps)
-        etl_ml.py    limpieza + exclusiones + correcciones manuales + features + precio/kg + outliers
-        etl_maps.py  limpieza + features + sin TACC (confirmado / por búsqueda) + competencia a 2 km
-        muestra.py   90 % de trabajo / 10 % reservado (semilla 42, por grupo), igual que el Colab
-        eda.py       indicadores de negocio
-        reglas.py    reglas de negocio (palabras clave, umbrales, provincias), separadas del código
-        salida.py    filas del dataset e historial de precios
-  └─> Dataset (filas con columna `tabla`)
-  └─> Key-value store `radar-sintacc` (URL fija): productos.csv, locales.csv, historial_kpi.csv, RESUMEN
-        └─> Google Sheets (IMPORTDATA) ──> AppSheet
+Make (programado, semanal) · 6 operaciones por corrida
+  1. Actor {operation: "analytics", source: "csv", csvStore: <ID>}
+       extraer.py    CSV del store de entrada (por ID, solo lectura)  ó  extractores de Apify
+       etl_ml.py     limpieza + exclusiones + correcciones manuales + features + precio/kg + outliers
+       etl_maps.py   limpieza + features + sin TACC (confirmado / por búsqueda) + competencia a 2 km
+       muestra.py    90 % de trabajo / 10 % reservado (semilla 42, por grupo), igual que el Colab
+       eda.py        indicadores de negocio
+       salida.py     filas del dataset e historial de precios
+     └─> store `radar-sintacc`: productos.csv, locales.csv, historial_kpi.csv, RESUMEN
+  2. Actor {operation: "inference"}
+       inferencia.py semáforo de compra (lee productos.csv del paso 1)
+     └─> store `radar-sintacc`: insights.csv, RESUMEN_INFERENCE
+  3. Google Sheets (IMPORTDATA, una pestaña por archivo) ──> AppSheet (dashboard e insights)
+
+  reglas.py: reglas de negocio (palabras clave, correcciones, límites, umbrales), separadas del código
+  Filtro status = SUCCEEDED y Rollback: si el Actor falla, la Sheet no se toca
 ```
 
 ## Input
@@ -90,6 +94,40 @@ Cuando Data Science entregue el modelo (`modelos/`), lo normal pasa a ser el pre
 
 **Salvedad:** es un **ahorro potencial**, no demostrado: lo verde es más barato porque se eligió por barato. La prueba real sería un piloto con un local.
 
+## Uso por API
+
+**Documentación (GET):** este README es la documentación del Actor; también se obtiene por API:
+
+```bash
+curl "https://api.apify.com/v2/acts/jfnatanahel~radar-sintacc-noa?token=$APIFY_TOKEN"
+```
+
+**Ejecutar (POST)** y recibir los resultados en la misma respuesta:
+
+```bash
+# Producto 1: ETL + EDA
+curl -X POST "https://api.apify.com/v2/acts/jfnatanahel~radar-sintacc-noa/run-sync-get-dataset-items?token=$APIFY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "analytics", "source": "csv", "csvStore": "<ID del store de entrada>"}'
+
+# Producto 2: semáforo de compra (usa la última salida de analytics)
+curl -X POST "https://api.apify.com/v2/acts/jfnatanahel~radar-sintacc-noa/run-sync-get-dataset-items?token=$APIFY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"operation": "inference"}'
+```
+
+El token va siempre en una variable de entorno, nunca en el código.
+
+## Costos
+
+| Operación | Tiempo | Costo por corrida | Por mes (semanal) |
+|---|---|---|---|
+| `analytics` (fuente csv) | 4 a 8 s | USD 0,007 (medido en 5 corridas, 17/11) | ≈ USD 0,03 |
+| `inference` | ≈ 2 s | a medir | — |
+| Make | 6 operaciones | plan gratis (1.000 por mes) | ≈ 26 operaciones |
+
+Entra en el crédito gratis de Apify (USD 5 por mes). La fuente `apify` (extracción nueva) suma el costo de los extractores de Mercado Libre y Google Maps, que todavía no se midió. El precio de venta por corrida (Apify Store) se define con el modelo de negocio; referencia de clase: costo × 2,5 (margen del 60 %).
+
 ## Decisiones de datos
 
 Todas acordadas con Data Science (registro de decisiones en la Documentación del CAPSTONE, 15/11 y 16/11).
@@ -139,12 +177,12 @@ Después, el Actor se corre con `{"operation": "analytics", "source": "csv"}`.
 ## Estructura
 
 ```
-.actor/        actor.json, input_schema.json
+.actor/        actor.json, input_schema.json, output_schema.json, dataset_schema.json (vistas del Output)
 src/           main.py (solo arma el Actor)
                extraer.py · etl_ml.py · etl_maps.py · muestra.py · parseo.py · eda.py · salida.py · inferencia.py
                reglas.py (reglas de negocio)
 modelos/       modelos ya entrenados para inference (Producto 2)
 scripts/       subir_csv_a_apify.py (se corre fuera del Actor)
-tests/         test_parseo.py · test_controles.py · test_salida.py · test_inferencia.py · test_lineamientos.py
-requirements.txt (imagen del Actor) · requirements-dev.txt (tests y scripts)
+tests/         test_parseo.py · test_controles.py · test_salida.py · test_inferencia.py · test_lineamientos.py · test_esquemas.py
+requirements.txt (imagen del Actor, versiones fijas) · requirements-dev.txt (tests y scripts)
 ```
