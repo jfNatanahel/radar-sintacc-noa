@@ -1,13 +1,16 @@
 """Extracción: de dónde salen los datos crudos.
 
+Regla R1: los datos entran al Actor SOLO por el SDK de Apify (nada de urllib, requests,
+httpx ni open() sobre fuentes externas). Así cada entrada queda trazable en la plataforma.
+
 Dos fuentes posibles (parámetro `source`):
-- "csv":   lee CSV ya extraídos (links públicos de Drive). Rápido y barato: ideal para la demo.
+- "csv":   los CSV del 12/11, guardados en el key-value store `STORE_ENTRADA` de la cuenta
+           (se suben una sola vez con scripts/subir_csv_a_apify.py). Rápido y barato: demo.
 - "apify": llama a los extractores de Apify (Mercado Libre y Google Maps) y trae datos nuevos.
 """
 
 import io
 
-import httpx
 import pandas as pd
 from apify import Actor
 
@@ -15,22 +18,28 @@ from . import reglas
 
 MAPS_ACTOR = "compass/crawler-google-places"
 
+# Key-value store con los CSV ya extraídos. Nombre fijo: la entrada del Actor no puede
+# apuntar a otro lugar (no hay URLs en el input).
+STORE_ENTRADA = "radar-sintacc-entrada"
+CLAVE_ML = "ml_unificado.csv"
+CLAVE_MAPS = "maps_unificado.csv"
 
-def _url_descarga(url: str) -> str:
-    """Convierte un link de Drive 'compartir' en link de descarga directa."""
-    if "drive.google.com" in url and "/d/" in url:
-        file_id = url.split("/d/")[1].split("/")[0]
-        return f"https://drive.google.com/uc?export=download&id={file_id}"
-    return url
+COLUMNAS_ML = ["idPublicacion", "articuloTitulo", "nuevoPrecio", "produtoDomainID", "categoria"]
+COLUMNAS_MAPS = ["placeId", "title", "categoryName", "state", "countryCode", "reviewsCount"]
 
 
-async def leer_csv(url: str) -> pd.DataFrame:
-    if not url.startswith("http"):  # archivo local (pruebas con `apify run`)
-        return pd.read_csv(url, low_memory=False)
-    async with httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
-        r = await client.get(_url_descarga(url))
-        r.raise_for_status()
-    return pd.read_csv(io.BytesIO(r.content), low_memory=False)
+def csv_a_tabla(contenido: bytes | str | None, origen: str) -> pd.DataFrame:
+    """Convierte el contenido de un registro del store en tabla. Falla claro si no existe."""
+    if contenido is None:
+        raise ValueError(f"No está {origen}. Subirlo con scripts/subir_csv_a_apify.py.")
+    if isinstance(contenido, str):
+        contenido = contenido.encode("utf-8")
+    return pd.read_csv(io.BytesIO(contenido), low_memory=False)
+
+
+async def leer_csv_store(clave: str) -> pd.DataFrame:
+    store = await Actor.open_key_value_store(name=STORE_ENTRADA)
+    return csv_a_tabla(await store.get_value(clave), f"'{clave}' en el store '{STORE_ENTRADA}'")
 
 
 async def _correr_actor(actor_id: str, entrada: dict) -> list[dict]:
@@ -76,3 +85,23 @@ def validar_columnas(df: pd.DataFrame, requeridas: list[str], fuente: str) -> No
     if df.empty or faltan:
         raise ValueError(f"{fuente}: {len(df)} filas, faltan columnas {faltan}. "
                          f"¿Cambió la página o el extractor?")
+
+
+async def obtener_datos(entrada: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Devuelve (Mercado Libre crudo, Google Maps crudo) según `source`, con columnas validadas."""
+    fuente = entrada.get("source", "csv")
+    if fuente == "apify":
+        if not entrada.get("mlActorId") or not entrada.get("mlInput"):
+            raise ValueError("source 'apify' necesita mlActorId y mlInput (extractor de Mercado Libre).")
+        ml = await mercado_libre_apify(entrada["mlActorId"], entrada["mlInput"],
+                                       entrada.get("productos", list(reglas.PRODUCTOS)))
+        maps = await google_maps_apify(entrada.get("provincias", list(reglas.PROVINCIAS)),
+                                       int(entrada.get("maxPorBusqueda", 40)))
+    elif fuente == "csv":
+        ml = await leer_csv_store(CLAVE_ML)
+        maps = await leer_csv_store(CLAVE_MAPS)
+    else:
+        raise ValueError(f"Fuente desconocida: {fuente!r}. Usar 'csv' o 'apify'.")
+    validar_columnas(ml, COLUMNAS_ML, "Mercado Libre")
+    validar_columnas(maps, COLUMNAS_MAPS, "Google Maps")
+    return ml, maps

@@ -1,0 +1,8 @@
+tests/
+scripts/
+storage/
+data/
+*.csv
+.env
+__pycache__/
+.pytest_cache/

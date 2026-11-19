@@ -9,33 +9,31 @@
             "type": "string",
             "description": "analytics = Producto 1 (ETL + EDA). inference = Producto 2.",
             "editor": "select",
-            "enum": ["analytics", "inference"],
-            "enumTitles": ["Analytics: de los datos a la información", "Inference: de la información a las decisiones"],
+            "enum": [
+                "analytics",
+                "inference"
+            ],
+            "enumTitles": [
+                "Analytics: de los datos a la información",
+                "Inference: de la información a las decisiones"
+            ],
             "default": "analytics"
         },
         "source": {
             "sectionCaption": "Fuente de datos",
             "title": "Fuente",
             "type": "string",
-            "description": "csv = lee CSV ya extraídos (rápido, casi sin costo). apify = extrae datos nuevos de Mercado Libre y Google Maps.",
+            "description": "csv = los CSV del 12/11 guardados en el key-value store 'radar-sintacc-entrada' (rápido, casi sin costo). apify = extrae datos nuevos de Mercado Libre y Google Maps.",
             "editor": "select",
-            "enum": ["csv", "apify"],
-            "enumTitles": ["CSV ya extraídos (demo)", "Extracción nueva con Apify"],
+            "enum": [
+                "csv",
+                "apify"
+            ],
+            "enumTitles": [
+                "CSV ya extraídos (demo)",
+                "Extracción nueva con Apify"
+            ],
             "default": "csv"
-        },
-        "mlCsvUrl": {
-            "title": "CSV de Mercado Libre (unificado)",
-            "type": "string",
-            "description": "Link público al CSV unificado de Mercado Libre. Solo para fuente csv.",
-            "editor": "textfield",
-            "default": "https://drive.google.com/file/d/1liuyctdi_pk6EzN-0lFJFHo6G8RtkLTp/view"
-        },
-        "mapsCsvUrl": {
-            "title": "CSV de Google Maps (unificado)",
-            "type": "string",
-            "description": "Link público al CSV unificado de Google Maps. Solo para fuente csv.",
-            "editor": "textfield",
-            "default": "https://drive.google.com/file/d/1nwLs2YTPGb9lGNjwHm9NtGlXa-uQCEkD/view"
         },
         "mlActorId": {
             "sectionCaption": "Extracción nueva (fuente apify)",
@@ -56,14 +54,24 @@
             "type": "array",
             "description": "Categorías a extraer.",
             "editor": "stringList",
-            "default": ["premezcla", "harina", "fideos", "rebozador", "pan"]
+            "default": [
+                "premezcla",
+                "harina",
+                "fideos",
+                "rebozador",
+                "pan"
+            ]
         },
         "provincias": {
             "title": "Provincias",
             "type": "array",
             "description": "Se busca en la capital de cada una.",
             "editor": "stringList",
-            "default": ["Salta", "Jujuy", "La Rioja"]
+            "default": [
+                "Salta",
+                "Jujuy",
+                "La Rioja"
+            ]
         },
         "maxPorBusqueda": {
             "title": "Máximo de locales por búsqueda",
@@ -75,5 +83,7 @@
             "default": 40
         }
     },
-    "required": ["operation"]
+    "required": [
+        "operation"
+    ]
 }

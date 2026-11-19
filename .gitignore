@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Apify local (apify run)
+storage/
+apify_storage/
+
+# Datos y secretos: nunca al repo
+*.csv
+data/
+.env
+.env.*

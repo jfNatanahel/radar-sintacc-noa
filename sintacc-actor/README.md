@@ -17,14 +17,16 @@ Un Actor, dos operaciones:
 ```
 Make (programado, semanal)
   └─> Actor  {operation: "analytics"}
-        extraer.py   CSV de Drive  ó  extractores de Apify (Mercado Libre + Google Maps)
+        extraer.py   CSV del key-value store `radar-sintacc-entrada`  ó  extractores de Apify (Mercado Libre + Google Maps)
         etl_ml.py    limpieza + exclusiones + correcciones manuales + features + precio/kg + outliers
         etl_maps.py  limpieza + features + sin TACC (confirmado / por búsqueda) + competencia a 2 km
         muestra.py   90 % de trabajo / 10 % reservado (semilla 42, por grupo), igual que el Colab
         eda.py       indicadores de negocio
         reglas.py    reglas de negocio (palabras clave, umbrales, provincias), separadas del código
-  └─> Dataset (filas con columna `tabla`) ──> Make ──> Google Sheets ──> Tableau
-  └─> Key-value store: RESUMEN (JSON), productos.csv, locales.csv
+        salida.py    filas del dataset e historial de precios
+  └─> Dataset (filas con columna `tabla`)
+  └─> Key-value store `radar-sintacc` (URL fija): productos.csv, locales.csv, historial_kpi.csv, RESUMEN
+        └─> Google Sheets (IMPORTDATA) ──> AppSheet
 ```
 
 ## Input
@@ -32,8 +34,7 @@ Make (programado, semanal)
 | Parámetro | Default | Descripción |
 |---|---|---|
 | `operation` | `analytics` | `analytics` o `inference` |
-| `source` | `csv` | `csv`: lee CSV ya extraídos (demo, casi sin costo). `apify`: extracción nueva |
-| `mlCsvUrl` / `mapsCsvUrl` | — | Links públicos a los CSV unificados (fuente `csv`) |
+| `source` | `csv` | `csv`: los CSV del 12/11 guardados en el key-value store `radar-sintacc-entrada` (demo, casi sin costo). `apify`: extracción nueva |
 | `mlActorId` / `mlInput` | — | Extractor de Mercado Libre y su input, con `{busqueda}` donde va el texto (fuente `apify`) |
 | `productos` | los 5 | premezcla, harina, fideos, rebozador, pan |
 | `provincias` | las 3 | Salta, Jujuy, La Rioja (se busca en la capital) |
@@ -42,9 +43,7 @@ Make (programado, semanal)
 ```json
 {
   "operation": "analytics",
-  "source": "csv",
-  "mlCsvUrl": "https://drive.google.com/file/d/<id>/view",
-  "mapsCsvUrl": "https://drive.google.com/file/d/<id>/view"
+  "source": "csv"
 }
 ```
 
@@ -88,18 +87,43 @@ Todas acordadas con Data Science (registro de decisiones en la Documentación de
 - La cantidad de reseñas mide popularidad, no ventas.
 - Solo se cubren las capitales, y Jujuy concentra la mayoría de los locales.
 
+## Lineamientos del Actor (R1 a R4)
+
+| Regla | Qué exige | Cómo se cumple |
+|---|---|---|
+| R1 · Carga de datos | Datos solo por el SDK de Apify | `source: csv` lee el key-value store `radar-sintacc-entrada`; `source: apify` usa `Actor.call`. Sin urllib, requests, httpx ni open(). El input no acepta URLs. |
+| R2 · Entrenamiento | El Actor no entrena | No hay ningún `fit`. Se entrena en el Colab. |
+| R3 · Carga del modelo | El modelo ya está en una carpeta | `modelos/` (ver su README). No se descarga ni se crea por script. |
+| R4 · Estructura | `main.py` solo arma el Actor | `main.py` lee la entrada, llama a los módulos y publica. La lógica está en `extraer`, `etl_*`, `eda` y `salida`. |
+
+`tests/test_lineamientos.py` revisa el código fuente y falla si alguna regla se rompe. Detalle en `docs/lineamientos.md` del repo.
+
 ## Correr localmente
 
 ```bash
-pip install -r requirements.txt
-RADAR_ML_CSV=ml.csv RADAR_MAPS_CSV=maps.csv python -m pytest -q   # parseo + controles
-apify run --input '{"operation":"analytics","source":"csv","mlCsvUrl":"data/ml.csv","mapsCsvUrl":"data/maps.csv"}'
+pip install -r requirements-dev.txt
+python -m pytest -q                                   # parseo, salida y lineamientos
+RADAR_ML_CSV=ml.csv RADAR_MAPS_CSV=maps.csv python -m pytest -q   # + controles contra el Colab
 ```
+
+### Cargar los CSV del 12/11 en Apify (una sola vez)
+
+```bash
+export APIFY_TOKEN=...      # nunca en el código
+python scripts/subir_csv_a_apify.py ml_sintacc_unificado.csv maps_unificado.csv
+```
+
+Después, el Actor se corre con `{"operation": "analytics", "source": "csv"}`.
 
 ## Estructura
 
 ```
 .actor/        actor.json, input_schema.json
-src/           main.py · extraer.py · etl_ml.py · etl_maps.py · muestra.py · eda.py · parseo.py · reglas.py
-tests/         test_parseo.py · test_controles.py
+src/           main.py (solo arma el Actor)
+               extraer.py · etl_ml.py · etl_maps.py · muestra.py · parseo.py · eda.py · salida.py
+               reglas.py (reglas de negocio)
+modelos/       modelos ya entrenados para inference (Producto 2)
+scripts/       subir_csv_a_apify.py (se corre fuera del Actor)
+tests/         test_parseo.py · test_controles.py · test_salida.py · test_lineamientos.py
+requirements.txt (imagen del Actor) · requirements-dev.txt (tests y scripts)
 ```
