@@ -17,6 +17,7 @@ El diagnóstico del 19/11 sobre el commit `ffdbc02` encontró dos incumplimiento
 
 - **Hallazgo:** `extraer.py` (líneas 27–33) descargaba los CSV con `httpx.AsyncClient().get(...)` a partir de links de Drive que venían en el input (`mlCsvUrl`, `mapsCsvUrl`). Con una ruta local usaba `pd.read_csv(ruta)`. Además, el input permitía apuntar el Actor a cualquier URL.
 - **Corrección:** los CSV del 12/11 se suben una sola vez al key-value store `radar-sintacc-entrada` con `scripts/subir_csv_a_apify.py`, que corre fuera del Actor. El Actor los lee con `Actor.open_key_value_store(name=...)`. Se eliminaron `httpx`, `_url_descarga`, `leer_csv` y los campos `mlCsvUrl` y `mapsCsvUrl`. Si falta un archivo, el Actor falla con un mensaje que dice cómo cargarlo.
+- **Permisos limitados de Apify (19/11):** el Actor corre con `LIMITED_PERMISSIONS`, así que no puede abrir un store creado por otro (el de entrada se crea con el token del usuario). El store se le pasa en la entrada (`csvStore`, `resourceType: keyValueStore`, solo `READ`) y se abre por ID. Es la forma que recomienda Apify, y además deja registrado en cada corrida de qué store se leyó. El store de salida `radar-sintacc` lo creó el propio Actor, así que no necesita nada.
 - **Sin cambios:** la fuente `apify` ya cumplía (usa `Actor.call` y `Actor.apify_client`).
 
 ## R2 · Entrenamiento
@@ -54,9 +55,10 @@ Se comprobó que estos tests fallan con el código anterior (R1 y R4) y pasan co
 
 ## Escenario de Make (referencia)
 
-Apify "Run an Actor" (`{"operation": "analytics", "source": "csv"}`, sincrónico, con error handler Rollback) → tres módulos de Google Sheets "Update a Cell" en A1 de `productos`, `locales` e `historial_kpi`.
+Apify "Run an Actor" (`{"operation": "analytics", "source": "csv", "csvStore": "<ID>"}`, sincrónico, con error handler Rollback y un filtro `status = SUCCEEDED` antes de tocar la Sheet) → tres módulos de Google Sheets "Update a Cell" en A1 de `productos`, `locales` e `historial_kpi`.
 
 - **Separador `;`:** la Sheet está en configuración regional de Argentina, así que los argumentos de la fórmula van con punto y coma. Con comas da "error de fórmula" (pasó el 17/11 y el 19/11):
   `=IMPORTDATA("https://api.apify.com/v2/key-value-stores/<store>/records/<archivo>.csv?signature=<firma>&v={{timestamp}}"; ","; "en_US")`
 - **Firma por archivo:** cada registro del store tiene su propia `signature`. La de un archivo no abre otro (error `insufficient-permissions`). Se copia en Apify → Storage → Key-value stores → `radar-sintacc` → el registro → link para compartir.
 - `"en_US"` hace que los decimales del CSV se lean con punto. `{{timestamp}}` obliga a la Sheet a recargar en el momento.
+- **Corrida fallida que Make muestra en verde:** el módulo de Apify termina bien aunque el Actor falle (devuelve la corrida con `status = FAILED`), así que el Rollback no se dispara. Por eso va un filtro `status = SUCCEEDED` entre Apify y el primer módulo de Sheets.

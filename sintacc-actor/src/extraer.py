@@ -40,9 +40,17 @@ def csv_a_tabla(contenido: bytes | str | None, origen: str, ayuda: str = AYUDA_E
     return pd.read_csv(io.BytesIO(contenido), low_memory=False)
 
 
-async def leer_csv_store(clave: str, store: str = STORE_ENTRADA, ayuda: str = AYUDA_ENTRADA) -> pd.DataFrame:
-    kv = await Actor.open_key_value_store(name=store)
-    return csv_a_tabla(await kv.get_value(clave), f"'{clave}' en el store '{store}'", ayuda)
+async def leer_csv_store(clave: str, store: str = STORE_ENTRADA, ayuda: str = AYUDA_ENTRADA,
+                         store_id: str | None = None) -> pd.DataFrame:
+    """Lee un CSV de un key-value store, por ID (si viene en la entrada) o por nombre.
+
+    Con permisos limitados, Apify solo deja abrir los stores que creó el propio Actor o los que
+    el usuario le pasa en la entrada (campo `csvStore`). Por eso el store de entrada va por ID.
+    """
+    kv = await (Actor.open_key_value_store(id=store_id) if store_id
+                else Actor.open_key_value_store(name=store))
+    origen = f"'{clave}' en el store '{store_id or store}'"
+    return csv_a_tabla(await kv.get_value(clave), origen, ayuda)
 
 
 async def _correr_actor(actor_id: str, entrada: dict) -> list[dict]:
@@ -101,8 +109,9 @@ async def obtener_datos(entrada: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
         maps = await google_maps_apify(entrada.get("provincias", list(reglas.PROVINCIAS)),
                                        int(entrada.get("maxPorBusqueda", 40)))
     elif fuente == "csv":
-        ml = await leer_csv_store(CLAVE_ML)
-        maps = await leer_csv_store(CLAVE_MAPS)
+        store_id = entrada.get("csvStore")
+        ml = await leer_csv_store(CLAVE_ML, store_id=store_id)
+        maps = await leer_csv_store(CLAVE_MAPS, store_id=store_id)
     else:
         raise ValueError(f"Fuente desconocida: {fuente!r}. Usar 'csv' o 'apify'.")
     validar_columnas(ml, COLUMNAS_ML, "Mercado Libre")

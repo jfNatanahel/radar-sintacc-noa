@@ -35,6 +35,16 @@
             ],
             "default": "csv"
         },
+        "csvStore": {
+            "title": "Store con los CSV (fuente csv)",
+            "type": "string",
+            "description": "Key-value store 'radar-sintacc-entrada' con ml_unificado.csv y maps_unificado.csv (se cargan con scripts/subir_csv_a_apify.py). El Actor corre con permisos limitados: solo puede leer este store si se lo pasás acá. Solo lectura.",
+            "resourceType": "keyValueStore",
+            "resourcePermissions": [
+                "READ"
+            ],
+            "editor": "resourcePicker"
+        },
         "mlActorId": {
             "sectionCaption": "Extracción nueva (fuente apify)",
             "title": "Extractor de Mercado Libre",

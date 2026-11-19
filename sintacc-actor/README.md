@@ -35,6 +35,7 @@ Make (programado, semanal)
 |---|---|---|
 | `operation` | `analytics` | `analytics` o `inference` |
 | `source` | `csv` | `csv`: los CSV del 12/11 guardados en el key-value store `radar-sintacc-entrada` (demo, casi sin costo). `apify`: extracción nueva |
+| `csvStore` | — | ID del store `radar-sintacc-entrada` (fuente `csv`). Hace falta porque el Actor corre con **permisos limitados**: solo lee los stores que creó él o los que se le pasan en la entrada (solo lectura) |
 | `mlActorId` / `mlInput` | — | Extractor de Mercado Libre y su input, con `{busqueda}` donde va el texto (fuente `apify`) |
 | `productos` | los 5 | premezcla, harina, fideos, rebozador, pan |
 | `provincias` | las 3 | Salta, Jujuy, La Rioja (se busca en la capital) |
@@ -43,7 +44,8 @@ Make (programado, semanal)
 ```json
 {
   "operation": "analytics",
-  "source": "csv"
+  "source": "csv",
+  "csvStore": "<ID del store radar-sintacc-entrada>"
 }
 ```
 
