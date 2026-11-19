@@ -28,18 +28,21 @@ COLUMNAS_ML = ["idPublicacion", "articuloTitulo", "nuevoPrecio", "produtoDomainI
 COLUMNAS_MAPS = ["placeId", "title", "categoryName", "state", "countryCode", "reviewsCount"]
 
 
-def csv_a_tabla(contenido: bytes | str | None, origen: str) -> pd.DataFrame:
+AYUDA_ENTRADA = "Subirlo con scripts/subir_csv_a_apify.py."
+
+
+def csv_a_tabla(contenido: bytes | str | None, origen: str, ayuda: str = AYUDA_ENTRADA) -> pd.DataFrame:
     """Convierte el contenido de un registro del store en tabla. Falla claro si no existe."""
     if contenido is None:
-        raise ValueError(f"No está {origen}. Subirlo con scripts/subir_csv_a_apify.py.")
+        raise ValueError(f"No está {origen}. {ayuda}")
     if isinstance(contenido, str):
         contenido = contenido.encode("utf-8")
     return pd.read_csv(io.BytesIO(contenido), low_memory=False)
 
 
-async def leer_csv_store(clave: str) -> pd.DataFrame:
-    store = await Actor.open_key_value_store(name=STORE_ENTRADA)
-    return csv_a_tabla(await store.get_value(clave), f"'{clave}' en el store '{STORE_ENTRADA}'")
+async def leer_csv_store(clave: str, store: str = STORE_ENTRADA, ayuda: str = AYUDA_ENTRADA) -> pd.DataFrame:
+    kv = await Actor.open_key_value_store(name=store)
+    return csv_a_tabla(await kv.get_value(clave), f"'{clave}' en el store '{store}'", ayuda)
 
 
 async def _correr_actor(actor_id: str, entrada: dict) -> list[dict]:

@@ -97,3 +97,13 @@ TIPOS_LOCAL = {
     "restaurante": (r"restaurante|parrilla|pizza|pizzer|hamburgues|bar\b|pub\b|snack|"
                     r"rotiser|comida|pollería|sándwich|cervecer"),
 }
+
+# ---------------------------------------------------------------- Producto 2: semáforo de compra
+# Referencia (plan B, sin modelo): mediana del precio por kg de su categoría y tipo de venta
+# (minorista / mayorista), calculada solo con el 90 % de trabajo y sin outliers.
+# Diferencia = precio_por_kg / referencia - 1.
+SEMAFORO_VERDE = -0.25   # 25 % o más por debajo de lo normal: oportunidad de compra
+SEMAFORO_ROJO = 0.25     # 25 % o más por encima de lo normal: cara
+# Si un grupo (categoría + tipo de venta) tiene menos publicaciones que esto,
+# se usa la mediana de toda la categoría.
+SEMAFORO_MIN_GRUPO = 5

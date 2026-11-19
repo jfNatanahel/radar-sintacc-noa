@@ -12,14 +12,14 @@ TABLAS_KPI = {
 }
 
 
-def _filas(df: pd.DataFrame, tabla: str, fecha: str) -> list[dict]:
+def filas_tabla(df: pd.DataFrame, tabla: str, fecha: str) -> list[dict]:
     df = df.astype(object).where(df.notna(), None)
     return [{"tabla": tabla, "fecha_corrida": fecha, **r} for r in df.to_dict("records")]
 
 
 def filas_dataset(ml: pd.DataFrame, maps: pd.DataFrame, resumen: dict, fecha: str) -> list[dict]:
     """Una fila por registro; la columna `tabla` dice a qué tabla va (así las separa Make)."""
-    filas = _filas(ml, "productos", fecha) + _filas(maps, "locales", fecha)
+    filas = filas_tabla(ml, "productos", fecha) + filas_tabla(maps, "locales", fecha)
     for tabla, clave in TABLAS_KPI.items():
         filas += [{"tabla": tabla, "fecha_corrida": fecha, **k} for k in resumen[clave]]
     return filas

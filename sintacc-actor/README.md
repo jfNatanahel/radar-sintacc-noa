@@ -10,7 +10,7 @@ Un Actor, dos operaciones:
 | `operation` | Producto | Qué hace |
 |---|---|---|
 | `analytics` | Producto 1 | Extracción → ETL → EDA → tablas limpias + indicadores para el dashboard |
-| `inference` | Producto 2 | (en desarrollo) |
+| `inference` | Producto 2 | Semáforo de compra por publicación (verde / amarillo / rojo / revisar) a partir de la última salida de `analytics` |
 
 ## Arquitectura
 
@@ -69,6 +69,25 @@ Todas llevan `fecha_corrida`: cada ejecución semanal suma historia, y eso permi
 
 Con los CSV del 12/11 los controles tienen que dar lo mismo que el Colab: 831 publicaciones (748 de trabajo, 91 por mayor, 85 con peso imputado, 19 outliers) y 407 locales (366 de trabajo, 10 confirmados, 90 por búsqueda). Lo verifica `tests/test_controles.py`.
 
+## Producto 2: operación `inference`
+
+Lee `productos.csv` del store `radar-sintacc` (lo que dejó la última corrida de `analytics`) y le pone un semáforo a cada publicación:
+
+| Color | Cuándo | Para el cliente |
+|---|---|---|
+| verde | precio por kg al menos 25 % por debajo de lo normal | oportunidad de compra |
+| amarillo | dentro de ±25 % | precio normal |
+| rojo | al menos 25 % por encima | cara |
+| revisar | peso estimado o precio por kg fuera de rango | el precio por kg no es confiable |
+
+**Lo normal** (método `mediana_categoria`, plan B mientras no esté el modelo): la mediana del precio por kg de su categoría y tipo de venta (minorista o mayorista), calculada solo con el 90 % de trabajo y sin outliers. Si el grupo tiene menos de 5 publicaciones, se usa la mediana de toda la categoría. Los umbrales están en `reglas.py`.
+
+Cuando Data Science entregue el modelo (`modelos/`), lo normal pasa a ser el precio esperado por el modelo. El Actor no entrena (R2) ni descarga el modelo (R3).
+
+**Salida:** dataset con `tabla = insights`; `insights.csv` y `RESUMEN_INFERENCE` en el store de la corrida y en `radar-sintacc`. Columnas: `idPublicacion`, `articuloTitulo`, `categoria`, `venta_por_mayor`, `muestra`, `precio`, `precio_por_kg`, `referencia_kg`, `diferencia_pct`, `ahorro_por_kg`, `semaforo`, `motivo`, `metodo`.
+
+**Salvedad:** es un **ahorro potencial**, no demostrado: lo verde es más barato porque se eligió por barato. La prueba real sería un piloto con un local.
+
 ## Decisiones de datos
 
 Todas acordadas con Data Science (registro de decisiones en la Documentación del CAPSTONE, 15/11 y 16/11).
@@ -120,10 +139,10 @@ Después, el Actor se corre con `{"operation": "analytics", "source": "csv"}`.
 ```
 .actor/        actor.json, input_schema.json
 src/           main.py (solo arma el Actor)
-               extraer.py · etl_ml.py · etl_maps.py · muestra.py · parseo.py · eda.py · salida.py
+               extraer.py · etl_ml.py · etl_maps.py · muestra.py · parseo.py · eda.py · salida.py · inferencia.py
                reglas.py (reglas de negocio)
 modelos/       modelos ya entrenados para inference (Producto 2)
 scripts/       subir_csv_a_apify.py (se corre fuera del Actor)
-tests/         test_parseo.py · test_controles.py · test_salida.py · test_lineamientos.py
+tests/         test_parseo.py · test_controles.py · test_salida.py · test_inferencia.py · test_lineamientos.py
 requirements.txt (imagen del Actor) · requirements-dev.txt (tests y scripts)
 ```

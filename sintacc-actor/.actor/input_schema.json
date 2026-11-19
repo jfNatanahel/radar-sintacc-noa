@@ -7,7 +7,7 @@
         "operation": {
             "title": "Operación",
             "type": "string",
-            "description": "analytics = Producto 1 (ETL + EDA). inference = Producto 2.",
+            "description": "analytics = Producto 1 (ETL + EDA). inference = Producto 2 (semáforo de compra; usa la última salida de analytics).",
             "editor": "select",
             "enum": [
                 "analytics",
