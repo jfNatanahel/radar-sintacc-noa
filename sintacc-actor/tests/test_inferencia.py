@@ -14,7 +14,7 @@ def _productos() -> pd.DataFrame:
         filas.append(("T%d" % i, "harina", 0, "trabajo", kg, 0, 0))
     filas += [
         ("VERDE", "harina", 0, "trabajo", 7_000, 0, 0),     # -30 %
-        ("ROJO", "harina", 0, "trabajo", 13_000, 0, 0),     # +30 %
+        ("ROJO", "harina", 0, "trabajo", 14_000, 0, 0),     # +44 %
         ("RES", "harina", 0, "reservado", 2_000, 0, 0),     # del 10 %: no mueve la referencia
         ("IMP", "harina", 0, "trabajo", 5_000, 1, 0),       # peso estimado
         ("OUT", "harina", 0, "trabajo", 90_000, 0, 1),      # outlier
@@ -40,7 +40,7 @@ def test_colores_del_semaforo():
 def test_referencia_solo_con_el_90_y_sin_outliers():
     s = inferencia.semaforo(_productos()).set_index("idPublicacion")
     # mediana de T0..T4, VERDE, ROJO, IMP: el reservado (2.000) y el outlier (90.000) no cuentan
-    esperado = pd.Series([9_000, 9_500, 10_000, 10_500, 11_000, 7_000, 13_000, 5_000]).median()
+    esperado = pd.Series([9_000, 9_500, 10_000, 10_500, 11_000, 7_000, 14_000, 5_000]).median()
     assert s.loc["VERDE", "referencia_kg"] == esperado
     assert s.loc["VERDE", "ahorro_por_kg"] == esperado - 7_000
 
@@ -48,9 +48,17 @@ def test_referencia_solo_con_el_90_y_sin_outliers():
 def test_grupo_chico_usa_la_mediana_de_la_categoria():
     s = inferencia.semaforo(_productos()).set_index("idPublicacion")
     # mayoristas solo hay 1 (< SEMAFORO_MIN_GRUPO): referencia = mediana de toda la harina del 90 %
-    categoria = pd.Series([9_000, 9_500, 10_000, 10_500, 11_000, 7_000, 13_000, 5_000, 8_000]).median()
+    categoria = pd.Series([9_000, 9_500, 10_000, 10_500, 11_000, 7_000, 14_000, 5_000, 8_000]).median()
     assert s.loc["MAY", "referencia_kg"] == categoria
     assert s.loc["MAY", "referencia_kg"] != s.loc["T0", "referencia_kg"]  # no usa la de minoristas
+
+
+def test_umbrales_simetricos():
+    from src import reglas
+    # 0,75 veces lo normal y 1,33 veces lo normal están a la misma distancia en proporción
+    assert abs((1 + reglas.SEMAFORO_VERDE) * (1 + reglas.SEMAFORO_ROJO) - 1) < 1e-9
+    s = inferencia.semaforo(_productos()).set_index("idPublicacion")
+    assert s.loc["T2", "semaforo"] == "amarillo"  # +2,6 %: dentro del rango normal
 
 
 def test_resumen_se_puede_guardar_como_json():

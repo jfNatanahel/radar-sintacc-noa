@@ -77,12 +77,12 @@ Lee `productos.csv` del store `radar-sintacc` (lo que dejó la última corrida d
 
 | Color | Cuándo | Para el cliente |
 |---|---|---|
-| verde | precio por kg al menos 25 % por debajo de lo normal | oportunidad de compra |
-| amarillo | dentro de ±25 % | precio normal |
-| rojo | al menos 25 % por encima | cara |
+| verde | precio por kg al menos 25 % por debajo de lo normal (0,75 veces) | oportunidad de compra |
+| amarillo | entre los dos umbrales | precio normal |
+| rojo | al menos 33 % por encima (1,33 veces = 1 ÷ 0,75) | cara |
 | revisar | peso estimado o precio por kg fuera de rango | el precio por kg no es confiable |
 
-**Lo normal** (método `mediana_categoria`, plan B mientras no esté el modelo): la mediana del precio por kg de su categoría y tipo de venta (minorista o mayorista), calculada solo con el 90 % de trabajo y sin outliers. Si el grupo tiene menos de 5 publicaciones, se usa la mediana de toda la categoría. Los umbrales están en `reglas.py`.
+**Lo normal** (método `mediana_categoria`, plan B mientras no esté el modelo): la mediana del precio por kg de su categoría y tipo de venta (minorista o mayorista), calculada solo con el 90 % de trabajo y sin outliers. Si el grupo tiene menos de 5 publicaciones, se usa la mediana de toda la categoría. Los umbrales están en `reglas.py` y son simétricos en proporción (con ±25 % el rojo quedaba más cerca que el verde).
 
 Cuando Data Science entregue el modelo (`modelos/`), lo normal pasa a ser el precio esperado por el modelo. El Actor no entrena (R2) ni descarga el modelo (R3).
 
