@@ -9,18 +9,20 @@ Un Actor, dos operaciones (parámetro `operation`):
 """
 
 import time
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from apify import Actor
 
 from . import eda, etl_maps, etl_ml, extraer, inferencia, salida
 
+ZONA = ZoneInfo("America/Argentina/Buenos_Aires")  # la fecha de corrida es la de Argentina, no UTC
 STORE_PUBLICO = "radar-sintacc"  # nombre fijo: Google Sheets (IMPORTDATA) lee siempre la misma URL
 
 
 async def analytics(entrada: dict) -> None:
     inicio = time.time()
-    fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    fecha = datetime.now(ZONA).strftime("%Y-%m-%d")
 
     ml_crudo, maps_crudo = await extraer.obtener_datos(entrada)
     Actor.log.info(f"Crudos: {len(ml_crudo)} publicaciones, {len(maps_crudo)} locales")
@@ -54,7 +56,7 @@ async def analytics(entrada: dict) -> None:
 
 async def inference(entrada: dict) -> None:
     inicio = time.time()
-    fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    fecha = datetime.now(ZONA).strftime("%Y-%m-%d")
 
     # Reusa los datos del Producto 1: la última salida de "analytics" (por el SDK, R1)
     productos = await extraer.leer_csv_store("productos.csv", store=STORE_PUBLICO,

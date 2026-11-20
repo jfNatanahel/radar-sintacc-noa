@@ -123,7 +123,7 @@ El token va siempre en una variable de entorno, nunca en el código.
 | Operación | Tiempo | Costo por corrida | Por mes (semanal) |
 |---|---|---|---|
 | `analytics` (fuente csv) | 4 a 8 s | USD 0,007 (medido en 5 corridas, 17/11) | ≈ USD 0,03 |
-| `inference` | ≈ 2 s | a medir | — |
+| `inference` | ≈ 5 s | USD 0,005 (medido, 19/11) | ≈ USD 0,02 |
 | Make | 6 operaciones | plan gratis (1.000 por mes) | ≈ 26 operaciones |
 
 Entra en el crédito gratis de Apify (USD 5 por mes). La fuente `apify` (extracción nueva) suma el costo de los extractores de Mercado Libre y Google Maps, que todavía no se midió. El precio de venta por corrida (Apify Store) se define con el modelo de negocio; referencia de clase: costo × 2,5 (margen del 60 %).

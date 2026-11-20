@@ -70,6 +70,7 @@ def semaforo(ml: pd.DataFrame) -> pd.DataFrame:
     ml["motivo"] = ml.apply(_motivo, axis=1)
     ml["metodo"] = METODO_MEDIANA
     ml["referencia_kg"] = ml["referencia_kg"].round(0)
+    ml["precio_por_kg"] = ml["precio_por_kg"].round(0)
     ml.loc[revisar, ["diferencia_pct", "ahorro_por_kg"]] = np.nan
 
     columnas = ["idPublicacion", "articuloTitulo", "categoria", "venta_por_mayor", "muestra",

@@ -36,8 +36,8 @@
                         "label": "Categoría"
                     },
                     "venta_por_mayor": {
-                        "label": "Por mayor",
-                        "format": "boolean"
+                        "label": "Por mayor (1 = sí)",
+                        "format": "number"
                     },
                     "precio": {
                         "label": "Precio ($)",
@@ -101,7 +101,7 @@
                         "format": "number"
                     },
                     "venta_por_mayor": {
-                        "format": "boolean"
+                        "format": "number"
                     },
                     "precio_por_kg": {
                         "label": "$/kg",
@@ -109,11 +109,11 @@
                     },
                     "outlier_precio_kg": {
                         "label": "Outlier",
-                        "format": "boolean"
+                        "format": "number"
                     },
                     "peso_imputado": {
                         "label": "Peso estimado",
-                        "format": "boolean"
+                        "format": "number"
                     },
                     "cantidad_vendida": {
                         "format": "number"
