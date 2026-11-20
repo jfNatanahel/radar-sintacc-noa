@@ -3,3 +3,4 @@
 apify==4.3.0
 pandas==3.0.5
 numpy==2.5.3
+tzdata==2026.6       # zona horaria de Argentina para fecha_corrida (la imagen puede no traerla)
