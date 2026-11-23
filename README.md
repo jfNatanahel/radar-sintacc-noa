@@ -159,7 +159,7 @@ Con los datos de la ficha del cliente: 3 personas, 12 horas por semana relevando
 
 El modelo principal estima el **precio esperado** de cada publicación según su peso total, las unidades del pack, la categoría, el envío gratis y el descuento. El objetivo está en logaritmo, así que el R² se lee como variación porcentual explicada. Se reporta además el error en pesos.
 
-**Cinco candidatos** (pedido de la cátedra), con el mismo preprocesamiento. Se eligen con validación cruzada de 5 partes **dentro del 90 % de trabajo**. El 10 % reservado se usa una sola vez, para reportar:
+**Cinco candidatos** (pedido de la cátedra), con el mismo preprocesamiento. Se comparan con validación cruzada de 5 partes **dentro del 90 % de trabajo**. Cada candidato se evaluó una sola vez en el 10 % reservado, y la elección se hizo por validación cruzada, no por el 10 %:
 
 | Candidato | R² (validación) | MAE (validación) | R² (10 % reservado) | MAE (10 %) | RMSE (10 %) |
 |---|---|---|---|---|---|
@@ -170,9 +170,12 @@ El modelo principal estima el **precio esperado** de cada publicación según su
 | Red · MLP | 0,763 | $7.337 | 0,646 | $8.531 | $27.887 |
 
 - **Por qué no se usa accuracy:** es una regresión (un precio), no una clasificación. Por eso se mide con R² y con el error en pesos (MAE y RMSE).
-- **Resultado:** el Random Forest y el Gradient Boosting quedan prácticamente empatados en la validación: 0,005 de R² y $21 de MAE de diferencia, menos que lo que varía entre particiones. Los dos superan el umbral de 0,70 en el 10 % reservado. **[COMPLETAR (DS): decisión final entre Random Forest y Gradient Boosting]**
+- **Resultado:** el Random Forest y el Gradient Boosting quedan prácticamente empatados en la validación: 0,005 de R² y $21 de MAE de diferencia, menos que lo que varía entre particiones. Los dos superan el umbral de 0,70 en el 10 % reservado.
+- **Decisión final (DS): Random Forest.** Una diferencia de 0,005 de R² está dentro del ruido entre semillas, así que los datos no justifican cambiar de modelo. El Random Forest se eligió como desempate porque ya está exportado, reproduce en el Actor el R² del Colab y es el mejor en Google Maps. La decisión no se tomó con el 10 % reservado, que se usó solo para reportar. (`entrenamiento/resultados.json` marca como "mejor" al Gradient Boosting porque el script desempata solo por el R² de validación).
 - **Para el cliente:** el modelo explica cerca del 74 % de la variación del precio en publicaciones que nunca vio, y se equivoca en promedio unos $4.565 por publicación.
-- **Modelo complementario (Google Maps, reseñas):** gana el Random Forest. R² de validación 0,768; en el 10 % reservado, R² 0,891 con un MAE de 242 reseñas.
+- **Modelo complementario (Google Maps, reseñas):** gana el Random Forest. R² de validación 0,768; en el 10 % reservado, R² 0,891, MAE de 242 reseñas y RMSE de 861 reseñas (Ridge: RMSE 1.677).
+
+**Dos comparaciones, mismo ranking.** Los números de esta tabla salen del repo (`entrenamiento/comparar_modelos.py`): Ridge como clásico 1 y validación cruzada de 5 partes. El Colab de Jose usa otro protocolo: regresión lineal y particiones 70/30 con 10 semillas. Ahí da en Mercado Libre Gradient Boosting 0,839 y Random Forest 0,829, y en Maps Random Forest 0,770, con un MAE de 240 reseñas en el 10 % y un RMSE de 865 (lineal: 1.708). Las diferencias chicas (0,768 contra 0,770, 242 contra 240, 861 contra 865) son esperables por el cambio de protocolo. En los dos, los ensambles quedan arriba y prácticamente empatados.
 
 **Validación de variables:** en Mercado Libre `peso_total_kg` es la que más explica: sin ella el R² baja de 0,78 a 0,43. `envio_gratis` y `descuento_pct` entran por criterio de negocio: su aporte propio es casi nulo, pero no empeoran el modelo.
 

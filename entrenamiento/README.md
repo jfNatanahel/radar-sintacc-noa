@@ -12,7 +12,9 @@ El Actor de Apify es **solo de inferencia**: acá vive el entrenamiento, que nun
 | Ensamble 2 | Gradient Boosting |
 | Red | MLPRegressor (scikit-learn) |
 
-**Métrica:** es regresión, así que no se usa accuracy. Se elige con validación cruzada de 5 partes **dentro del 90 % de trabajo** (R² en log y MAE / RMSE en la escala original). El 10 % reservado se usa **una sola vez**, para reportar, nunca para elegir.
+**Métrica:** es regresión, así que no se usa accuracy. Se elige con validación cruzada de 5 partes **dentro del 90 % de trabajo** (R² en log y MAE / RMSE en la escala original). Cada candidato se evalúa **una sola vez** en el 10 % reservado, para reportar; la elección se hace por validación cruzada, nunca por el 10 %.
+
+**Modelo en uso: Random Forest** (decisión de la DS). En la validación, Random Forest y Gradient Boosting quedan empatados (0,840 contra 0,845, dentro del ruido entre semillas), así que se mantuvo el RF: ya estaba exportado, reproduce el R² del Colab y es el mejor en Google Maps. Por eso `resultados.json` dice "mejor: Gradient Boosting" (el script desempata solo por R²), pero el Actor usa el RF. **Ojo:** `--exportar` reemplaza `modelos/modelo_ml.pkl` por el "mejor" del script; no correrlo sin acordarlo con la DS.
 
 ```bash
 pip install -r sintacc-actor/requirements-dev.txt
