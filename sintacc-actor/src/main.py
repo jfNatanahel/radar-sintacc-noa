@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 from apify import Actor
 
-from . import eda, etl_maps, etl_ml, extraer, inferencia, menu, modelo, salida
+from . import anmat, eda, etl_maps, etl_ml, extraer, inferencia, menu, modelo, salida
 
 ZONA = ZoneInfo("America/Argentina/Buenos_Aires")  # la fecha de corrida es la de Argentina, no UTC
 STORE_PUBLICO = "radar-sintacc"  # nombre fijo: Google Sheets (IMPORTDATA) lee siempre la misma URL
@@ -69,9 +69,15 @@ async def inference(entrada: dict) -> None:
         pipeline = modelo.cargar(modelo.MODELO_ML)
         esperado = modelo.predecir(pipeline, productos, modelo.FEATURES_ML)
     insights = inferencia.semaforo(productos, precio_esperado=esperado)
+
+    # "Barato y seguro": validación contra el listado de ANMAT (opcional, del store de entrada)
+    listado = await extraer.leer_anmat(entrada.get("csvStore"))
+    validacion = anmat.validar(insights, anmat.preparar_listado(listado) if listado is not None else None)
+    insights = inferencia.agregar_anmat(insights, validacion)
     resumen = inferencia.resumen(insights)
     resumen["fecha_corrida"] = fecha
-    Actor.log.info(f"Semáforo ({resumen['metodo']}): {resumen['total']}")
+    Actor.log.info(f"Semáforo ({resumen['metodo']}): {resumen['total']} · ANMAT: {resumen['anmat']} · "
+                   f"recomendados (verde y validado): {resumen['recomendados']}")
 
     filas = salida.filas_tabla(insights, "insights", fecha)
     store = await Actor.open_key_value_store(name=STORE_PUBLICO)

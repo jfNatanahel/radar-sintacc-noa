@@ -18,7 +18,9 @@ def costeo(insights: pd.DataFrame, recetas: list[dict] = reglas.RECETAS) -> pd.D
     confiables = insights[insights["semaforo"] != "revisar"]
     tipico = (confiables[confiables["venta_por_mayor"] == 0]
               .groupby("categoria")["precio_por_kg"].median())
-    verdes = insights[insights["semaforo"] == "verde"].sort_values("precio_por_kg")
+    # Solo se recomienda lo "barato y seguro": verde y validado en ANMAT (si se cargó el listado)
+    elegibles = insights["recomendado"] == 1 if "recomendado" in insights else insights["semaforo"] == "verde"
+    verdes = insights[elegibles].sort_values("precio_por_kg")
 
     filas = []
     for r in recetas:

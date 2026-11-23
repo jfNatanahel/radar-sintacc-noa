@@ -69,6 +69,19 @@ def _motivo(fila: pd.Series) -> str:
     return f"Precio normal para {fila['categoria']} ({tipo})"
 
 
+def agregar_anmat(insights: pd.DataFrame, validacion: pd.DataFrame) -> pd.DataFrame:
+    """Suma la validación ANMAT y `recomendado` = verde y validado ("barato y seguro")."""
+    df = insights.merge(validacion, on="idPublicacion", how="left")
+    sin_listado = (df["anmat"] == "sin_listado").all()
+    df["recomendado"] = ((df["semaforo"] == "verde") & (sin_listado | (df["anmat"] == "validado"))).astype(int)
+    if not sin_listado:
+        nota = df["anmat"].map({"validado": " · validado en el listado ANMAT",
+                                "marca_en_listado": " · la marca está en ANMAT, el producto no: verificar",
+                                "no_encontrado": " · no figura en el listado ANMAT: no recomendar"})
+        df["motivo"] = df["motivo"] + nota.where(df["semaforo"] != "revisar", "").fillna("")
+    return df
+
+
 def semaforo(ml: pd.DataFrame, precio_esperado: pd.Series | None = None) -> pd.DataFrame:
     """Una fila por publicación con su referencia, la diferencia y el color del semáforo.
 
@@ -110,7 +123,10 @@ def resumen(insights: pd.DataFrame) -> dict:
     return {
         "metodo": str(insights["metodo"].iloc[0]) if len(insights) else METODO_MEDIANA,
         "umbrales_pct": {"verde": reglas.SEMAFORO_VERDE * 100, "rojo": reglas.SEMAFORO_ROJO * 100},
-        "total": insights["semaforo"].value_counts().to_dict(),
+        "total": {k: int(v) for k, v in insights["semaforo"].value_counts().items()},
+        "anmat": ({k: int(v) for k, v in insights["anmat"].value_counts().items()}
+                  if "anmat" in insights else None),
+        "recomendados": int(insights["recomendado"].sum()) if "recomendado" in insights else None,
         "por_categoria": conteo.reset_index().to_dict("records"),
         "mejores_oportunidades": verdes[["idPublicacion", "articuloTitulo", "categoria", "precio",
                                          "precio_esperado", "precio_por_kg", "referencia_kg",

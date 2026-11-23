@@ -23,6 +23,7 @@ MAPS_ACTOR = "compass/crawler-google-places"
 STORE_ENTRADA = "radar-sintacc-entrada"
 CLAVE_ML = "ml_unificado.csv"
 CLAVE_MAPS = "maps_unificado.csv"
+CLAVE_ANMAT = "anmat_listado.csv"   # columnas marca, producto (scripts/subir_csv_a_apify.py --anmat)
 
 COLUMNAS_ML = ["idPublicacion", "articuloTitulo", "nuevoPrecio", "produtoDomainID", "categoria"]
 COLUMNAS_MAPS = ["placeId", "title", "categoryName", "state", "countryCode", "reviewsCount"]
@@ -117,3 +118,12 @@ async def obtener_datos(entrada: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
     validar_columnas(ml, COLUMNAS_ML, "Mercado Libre")
     validar_columnas(maps, COLUMNAS_MAPS, "Google Maps")
     return ml, maps
+
+
+async def leer_anmat(store_id: str | None) -> pd.DataFrame | None:
+    """Listado de ANMAT del store de entrada. Es opcional: si no está, devuelve None."""
+    if not store_id:
+        return None
+    kv = await Actor.open_key_value_store(id=store_id)
+    contenido = await kv.get_value(CLAVE_ANMAT)
+    return None if contenido is None else csv_a_tabla(contenido, CLAVE_ANMAT)

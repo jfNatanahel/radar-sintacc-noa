@@ -149,3 +149,12 @@ RECETAS = [
      "titulo": r"harina"},
     {"plato": "Sándwich", "insumo": "pan", "kg_porcion": 0.100, "porciones_mes": 60},
 ]
+
+# ---------------------------------------------------------------- Producto 2: validación ANMAT
+# Similitud mínima (0 a 100, rapidfuzz token_set_ratio) entre el título y un producto registrado
+# de la misma marca para considerarlo "validado". Debajo queda "marca_en_listado" (revisar a mano).
+ANMAT_UMBRAL = 80
+# Marcas que no se buscan en el título: muy cortas o palabras comunes que darían falsos positivos.
+ANMAT_MARCA_MIN = 3
+ANMAT_MARCAS_GENERICAS = {"sin tacc", "sin gluten", "libre de gluten", "harina", "premezcla", "pan",
+                          "fideos", "arroz", "maiz", "natural", "la", "el", "de", "s a", "srl", "sa"}

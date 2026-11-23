@@ -5,4 +5,5 @@ pandas==3.0.5
 numpy==2.5.3
 scikit-learn==1.6.1  # la MISMA versión con la que DS exportó los .pkl en el Colab (si no, pueden no cargar)
 joblib==1.6.0
+rapidfuzz==3.14.6  # cruce de títulos con el listado de ANMAT
 tzdata==2026.6       # zona horaria de Argentina para fecha_corrida (la imagen puede no traerla)
