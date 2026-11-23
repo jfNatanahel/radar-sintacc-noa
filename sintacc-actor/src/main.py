@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 from apify import Actor
 
-from . import eda, etl_maps, etl_ml, extraer, inferencia, modelo, salida
+from . import eda, etl_maps, etl_ml, extraer, inferencia, menu, modelo, salida
 
 ZONA = ZoneInfo("America/Argentina/Buenos_Aires")  # la fecha de corrida es la de Argentina, no UTC
 STORE_PUBLICO = "radar-sintacc"  # nombre fijo: Google Sheets (IMPORTDATA) lee siempre la misma URL
@@ -75,6 +75,14 @@ async def inference(entrada: dict) -> None:
 
     filas = salida.filas_tabla(insights, "insights", fecha)
     store = await Actor.open_key_value_store(name=STORE_PUBLICO)
+
+    # Kit "Menú Sin TACC": costo por plato con el precio típico y con la mejor oportunidad
+    costeo = menu.costeo(insights)
+    resumen["menu"] = menu.resumen(costeo)
+    filas += salida.filas_tabla(costeo, "menu", fecha)
+    await Actor.set_value("menu.csv", costeo.to_csv(index=False), content_type="text/csv")
+    await store.set_value("menu.csv", costeo.to_csv(index=False), content_type="text/csv")
+    Actor.log.info(f"Menú sin TACC: {resumen['menu']}")
 
     # Modelo complementario de Maps: popularidad real contra la esperada
     if usar_modelo:

@@ -7,6 +7,11 @@
             "title": "Semáforo de compra (inference)",
             "template": "{{links.apiDefaultDatasetUrl}}/items?view=insights"
         },
+        "menu": {
+            "type": "string",
+            "title": "Menú sin TACC: costo por plato (inference)",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=menu"
+        },
         "popularidad": {
             "type": "string",
             "title": "Popularidad de locales (inference, modelo Maps)",

@@ -97,6 +97,8 @@ Lee `productos.csv` y `locales.csv` del store `radar-sintacc` (lo que dejó la �
 - **Archivos:** `insights.csv`, `popularidad.csv` y `RESUMEN_INFERENCE`, en el store de la corrida y en `radar-sintacc`.
 - **Columnas de insights:** `idPublicacion`, `articuloTitulo`, `categoria`, `venta_por_mayor`, `muestra`, `precio`, `precio_esperado`, `precio_por_kg`, `referencia_kg` (esperado por kg), `diferencia_pct`, `ahorro_por_kg`, `semaforo`, `motivo`, `metodo`.
 
+**Kit "Menú Sin TACC"** (`menu.py`): para 5 platos base (fideos con salsa, milanesa rebozada, pizza individual, masa de tarta y sándwich), calcula el costo del insumo sin TACC por porción con el **precio típico** (mediana minorista de la categoría) y con la **mejor oportunidad verde**, que sale como una publicación concreta para comprar. También calcula el ahorro por mes. Las cantidades por porción y las porciones por mes están en `reglas.RECETAS` y son supuestos editables. Sale en `menu.csv` y en el dataset con `tabla = menu`.
+
 **Salvedades:**
 - Es un **ahorro potencial**, no demostrado: lo verde es más barato porque se eligió por barato.
 - El modelo se entrenó con el 90 % de trabajo. En esas publicaciones el precio esperado se parece más al real, así que el semáforo es conservador.

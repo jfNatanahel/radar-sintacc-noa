@@ -134,3 +134,18 @@ SEMAFORO_MIN_GRUPO = 5
 # Modelo de Maps (complementario): un local es "por encima de lo esperado" si tiene al menos el
 # doble de reseñas que las que predice el modelo (y "por debajo" si tiene la mitad o menos).
 POPULARIDAD_ALTA = 2.0
+
+# ---------------------------------------------------------------- Producto 2: costeador de menú
+# Kit "Menú Sin TACC" (idea de Juan, 17/11): un plato base por insumo. Cantidad del insumo sin TACC
+# por porción (kg) y porciones por mes. Son SUPUESTOS editables para un local chico (2 porciones
+# por día de cada plato); el costo es solo el del insumo sin TACC, no el del plato completo.
+RECETAS = [
+    {"plato": "Fideos con salsa", "insumo": "fideos", "kg_porcion": 0.120, "porciones_mes": 60},
+    {"plato": "Milanesa de pollo rebozada", "insumo": "rebozador", "kg_porcion": 0.040, "porciones_mes": 60},
+    {"plato": "Pizza individual", "insumo": "premezcla", "kg_porcion": 0.120, "porciones_mes": 60},
+    # "titulo" (opcional): el producto recomendado tiene que decir eso en el título. La categoría
+    # harina incluye féculas y almidones, que solos no sirven para una masa.
+    {"plato": "Tarta de verduras (masa)", "insumo": "harina", "kg_porcion": 0.060, "porciones_mes": 60,
+     "titulo": r"harina"},
+    {"plato": "Sándwich", "insumo": "pan", "kg_porcion": 0.100, "porciones_mes": 60},
+]

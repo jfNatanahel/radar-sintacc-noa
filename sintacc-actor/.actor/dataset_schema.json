@@ -269,6 +269,64 @@
                     }
                 }
             }
+        },
+        "menu": {
+            "title": "Menú sin TACC: costo por plato (inference)",
+            "description": "Filas con tabla = menu. Costo del insumo sin TACC por porción con el precio típico y con la mejor oportunidad del semáforo.",
+            "transformation": {
+                "fields": [
+                    "tabla",
+                    "plato",
+                    "insumo",
+                    "kg_porcion",
+                    "costo_porcion_tipico",
+                    "costo_porcion_radar",
+                    "ahorro_pct",
+                    "ahorro_mes",
+                    "publicacion_recomendada",
+                    "precio_publicacion",
+                    "idPublicacion",
+                    "fecha_corrida"
+                ]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "plato": {
+                        "label": "Plato"
+                    },
+                    "insumo": {
+                        "label": "Insumo"
+                    },
+                    "kg_porcion": {
+                        "label": "kg por porción",
+                        "format": "number"
+                    },
+                    "costo_porcion_tipico": {
+                        "label": "Costo por porción típico ($)",
+                        "format": "number"
+                    },
+                    "costo_porcion_radar": {
+                        "label": "Costo con el radar ($)",
+                        "format": "number"
+                    },
+                    "ahorro_pct": {
+                        "label": "Ahorro %",
+                        "format": "number"
+                    },
+                    "ahorro_mes": {
+                        "label": "Ahorro por mes ($)",
+                        "format": "number"
+                    },
+                    "publicacion_recomendada": {
+                        "label": "Comprar"
+                    },
+                    "precio_publicacion": {
+                        "label": "Precio ($)",
+                        "format": "number"
+                    }
+                }
+            }
         }
     }
 }
