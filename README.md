@@ -178,7 +178,7 @@ La tercera forma es el plan B sin modelo: compara contra la mediana de la catego
 | `motivo` · `metodo` | output | string | Explicación en una frase y método usado |
 | `anmat` | output | string: `validado` / `marca_en_listado` / `no_encontrado` / `sin_listado` | Validación contra ANMAT |
 | `anmat_similitud` | output | integer de 0 a 100, o null | Cobertura de las palabras clave |
-| `recomendado` | output | integer: 1 o 0 | 1 = verde y validado ("barato y seguro") |
+| `recomendado` | output | integer: 1 o 0 | 1 = verde y validado ("barato y seguro"). Sin listado ANMAT, 1 = verde |
 | `plato` · `costo_porcion_tipico` · `costo_porcion_radar` · `ahorro_pct` · `ahorro_mes` · `publicacion_recomendada` | output (`tabla = menu`) | string / number | Kit "Menú Sin TACC" |
 | `placeId` · `resenas` · `resenas_esperadas` · `razon_resenas` · `popularidad` | output (`tabla = popularidad`) | string / number | Modelo de Google Maps |
 | `fecha_corrida` | output | string (AAAA-MM-DD) | En todas las filas |
