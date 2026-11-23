@@ -107,8 +107,11 @@ async def inference(entrada: dict) -> None:
     await store.set_value("insights.csv", insights.to_csv(index=False), content_type="text/csv")
     await store.set_value("RESUMEN_INFERENCE", resumen)
 
-    await Actor.set_status_message(f"Listo ({resumen['metodo']}): semáforo de {len(insights)} publicaciones "
-                                   f"{resumen['total']} en {time.time() - inicio:.1f} s")
+    validados = (resumen["anmat"] or {}).get("validado", "sin listado")
+    await Actor.set_status_message(
+        f"Listo ({resumen['metodo']}): {len(insights)} publicaciones {resumen['total']} · "
+        f"ANMAT validados: {validados} · recomendados: {resumen['recomendados']} · "
+        f"menú: ahorro ${resumen['menu']['ahorro_mes']:,} por mes · {time.time() - inicio:.1f} s")
 
 
 async def main() -> None:
