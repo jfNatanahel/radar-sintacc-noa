@@ -20,6 +20,7 @@ Niveles (columna `anmat`):
 import re
 import unicodedata
 
+import numpy as np
 import pandas as pd
 from rapidfuzz import fuzz, process
 
@@ -34,19 +35,75 @@ def normalizar(texto) -> str:
     return re.sub(r"[^a-z0-9]+", " ", texto).strip()
 
 
+# Marcas diacríticas (tildes, diéresis, etc.) que deja la descomposición NFKD
+_DIACRITICOS = r"[̀-ͯ᪰-᫿᷀-᷿⃐-⃿︠-︯]"
+
+
+def normalizar_serie(textos: pd.Series) -> pd.Series:
+    """`normalizar` vectorizado con los métodos .str de pandas (sin recorrer fila por fila)."""
+    return (textos.astype(str).str.lower().str.normalize("NFKD")
+            .str.replace(_DIACRITICOS, "", regex=True)
+            .str.replace(r"[^a-z0-9]+", " ", regex=True).str.strip())
+
+
 def preparar_listado(listado: pd.DataFrame) -> dict[str, list[str]]:
     """{marca normalizada: [productos normalizados]} a partir de las columnas marca y producto."""
-    df = listado.assign(marca=listado["marca"].map(normalizar), producto=listado["producto"].map(normalizar))
+    df = listado.assign(marca=normalizar_serie(listado["marca"]), producto=normalizar_serie(listado["producto"]))
     df = df[df["marca"].str.len() >= reglas.ANMAT_MARCA_MIN]
     df = df[~df["marca"].isin(reglas.ANMAT_MARCAS_GENERICAS)]
     return df.groupby("marca")["producto"].apply(lambda s: sorted(set(s))).to_dict()
 
 
-def _marca_en_titulo(titulo: str, marcas: list[str]) -> str | None:
-    """La marca más larga del listado que aparece como palabra(s) completa(s) en el título."""
-    t = f" {titulo} "
-    encontradas = [m for m in marcas if f" {m} " in t]
-    return max(encontradas, key=len) if encontradas else None
+class _IndiceMarcas:
+    """Busca la marca del título por n-gramas en un set: O(palabras del título), no O(marcas).
+
+    Antes se recorrían las ~4.700 marcas por cada título (831 × 4.700 búsquedas de texto).
+    Ahora se arman los n-gramas del título (de 1 a la cantidad de palabras de la marca más larga)
+    y se buscan en un set. Mismo resultado: la marca más larga y, a igual largo, la primera en orden
+    alfabético.
+    """
+
+    def __init__(self, marcas):
+        orden = sorted(marcas, key=len, reverse=True)
+        self.posicion = {m: i for i, m in enumerate(orden)}
+        self.max_palabras = max((len(m.split()) for m in orden), default=0)
+
+    def buscar(self, titulo: str) -> str | None:
+        p = titulo.split()
+        ngramas = {" ".join(p[i:i + n]) for n in range(1, self.max_palabras + 1) for i in range(len(p) - n + 1)}
+        encontradas = ngramas & self.posicion.keys()
+        return min(encontradas, key=self.posicion.__getitem__) if encontradas else None
+
+
+class _IndiceProductos:
+    """Matriz palabra × producto de UNA marca, para medir la cobertura de todos sus productos juntos.
+
+    Antes, por cada título se recorría cada producto de la marca y, por cada palabra clave, se
+    buscaba la más parecida entre las palabras del producto (títulos × productos × claves).
+    Ahora la similitud se calcula una vez entre las claves y el vocabulario de la marca
+    (`rapidfuzz.process.cdist`, en C) y la cobertura de todos los productos sale de un producto de
+    matrices. Se arma solo para las marcas que aparecen en los títulos y se reutiliza.
+    """
+
+    def __init__(self, productos: list[str]):
+        self.productos = productos
+        palabras = [{reglas.ANMAT_SINONIMOS.get(w, w) for w in prod.split()} for prod in productos]
+        self.vocabulario = sorted(set().union(*palabras))
+        col = {w: j for j, w in enumerate(self.vocabulario)}
+        self.matriz = np.zeros((len(self.vocabulario), len(productos)), dtype=np.int32)
+        for k, ws in enumerate(palabras):
+            self.matriz[[col[w] for w in ws], k] = 1
+
+    def mejor(self, claves: list[str]) -> tuple[str | None, int, float]:
+        """Producto con más palabras clave presentes (a igual cantidad, el primero), cantidad y cobertura."""
+        if not claves or not self.vocabulario:
+            return None, 0, 0.0
+        parecidas = process.cdist(claves, self.vocabulario, scorer=fuzz.ratio, dtype=np.float64,
+                                  score_cutoff=reglas.ANMAT_SIMILITUD_PALABRA) > 0
+        presentes = ((parecidas.astype(np.int32) @ self.matriz) > 0).sum(axis=0)
+        k = int(presentes.argmax())  # argmax devuelve el primero si hay empate
+        n = int(presentes[k])
+        return (self.productos[k], n, n / len(claves)) if n else (None, 0, 0.0)
 
 
 def _claves(texto: str) -> list[str]:
@@ -58,33 +115,23 @@ def _claves(texto: str) -> list[str]:
     return vistas
 
 
-def _cobertura(claves: list[str], producto: str) -> tuple[int, float]:
-    """Cuántas palabras clave del título están en el producto (con tolerancia a tipeos)."""
-    palabras = {reglas.ANMAT_SINONIMOS.get(p, p) for p in producto.split()}
-    presentes = sum(1 for c in claves
-                    if c in palabras or (process.extractOne(c, palabras, scorer=fuzz.ratio) or ("", 0))[1]
-                    >= reglas.ANMAT_SIMILITUD_PALABRA)
-    return presentes, presentes / len(claves) if claves else 0.0
-
-
 def validar(productos: pd.DataFrame, listado: dict[str, list[str]] | None) -> pd.DataFrame:
     """Devuelve idPublicacion, anmat, anmat_marca, anmat_producto y anmat_similitud (0 a 100)."""
     if not listado:
         return pd.DataFrame({"idPublicacion": productos["idPublicacion"], "anmat": SIN_LISTADO,
                              "anmat_marca": None, "anmat_producto": None, "anmat_similitud": None})
-    marcas = sorted(listado, key=len, reverse=True)
+    marcas = _IndiceMarcas(listado)
+    por_marca: dict[str, _IndiceProductos] = {}  # se arma solo para las marcas que aparecen
     filas = []
-    for pid, titulo in zip(productos["idPublicacion"], productos["articuloTitulo"].map(normalizar)):
-        marca = _marca_en_titulo(titulo, marcas)
+    for pid, titulo in zip(productos["idPublicacion"], normalizar_serie(productos["articuloTitulo"])):
+        marca = marcas.buscar(titulo)
         if marca is None:
             filas.append((pid, NO_ENCONTRADO, None, None, None))
             continue
         claves = _claves(f" {titulo} ".replace(f" {marca} ", " "))
-        mejor, mejor_n, mejor_cob = None, 0, 0.0
-        for producto in listado[marca]:
-            n, cob = _cobertura(claves, producto)
-            if (n, cob) > (mejor_n, mejor_cob):
-                mejor, mejor_n, mejor_cob = producto, n, cob
+        if marca not in por_marca:
+            por_marca[marca] = _IndiceProductos(listado[marca])
+        mejor, mejor_n, mejor_cob = por_marca[marca].mejor(claves)
         ok = mejor_n >= reglas.ANMAT_MIN_CLAVES and mejor_cob >= reglas.ANMAT_COBERTURA
         filas.append((pid, VALIDADO if ok else MARCA, marca, mejor, round(100 * mejor_cob)))
     return pd.DataFrame(filas, columns=["idPublicacion", "anmat", "anmat_marca", "anmat_producto",

@@ -67,7 +67,13 @@ Con 2 porciones por día de cada plato, el local pasa de **$536.520 a $395.520 p
 
 Además, el modelo de Google Maps compara las reseñas reales de cada local con las esperadas. Así marca los locales más populares de lo esperado (11) como clientes potenciales a los que conviene ofrecerles los insumos.
 
-## 3. Flujo automático (Make)
+## 3. Arquitectura y flujo automático (Make)
+
+```
+Trigger            Apify               ETL                    Preprocesamiento        Inferencia                 Destino
+Make (semanal) ──> Actor: extracción ─> limpieza + features ─> log1p + columnas 0/1 ─> semáforo, ANMAT, menú, ─> Google Sheets ─> AppSheet
+o a mano           (CSV o extractores)  (etl_ml, etl_maps)     (dentro del pipeline)   popularidad (modelos RF)   + dataset y CSV en Apify
+```
 
 ![Escenario de Make](docs/img/make_escenario.png)
 
@@ -112,11 +118,14 @@ sintacc-actor/                  el Actor (es lo único que entra al build de Api
 │   ├── salida.py               filas del dataset e historial
 │   └── reglas.py               reglas de negocio (umbrales, correcciones, categorías)
 ├── modelos/                    modelo_ml.pkl y modelo_maps.pkl (entrenados en el Colab)
-├── scripts/                    carga de los CSV a Apify (se corre fuera del Actor)
-└── tests/                      63 tests: parseo, controles contra el Colab, modelos, semáforo y reglas R1 a R4
+├── scripts/                    carga de los CSV y del listado ANMAT a Apify (se corre fuera del Actor)
+└── tests/                      71 tests: parseo, controles contra el Colab, modelos, semáforo y reglas R1 a R4
 entrenamiento/                  comparación de los 5 modelos candidatos (fuera del Actor)
 docs/                           lineamientos R1 a R4 y captura de Make
 ```
+
+- **Notebooks:** el análisis y el entrenamiento están en el Colab del equipo: **[COMPLETAR (DS): link al Colab]**. No se suben al repo para no duplicar el código; `entrenamiento/` reproduce la comparación de modelos con el mismo ETL que el Actor.
+- **Datos:** no están en el repo a propósito (`.gitignore` excluye los `.csv`). Los crudos (CSV del 12/11) están en el Drive del equipo y en el key-value store de entrada de Apify. Los procesados los publica el Actor en el store `radar-sintacc` y llegan a la Google Sheet.
 
 **Operaciones e input:**
 
@@ -126,9 +135,64 @@ docs/                           lineamientos R1 a R4 y captura de Make
 { "operation": "inference", "metodo": "mediana" }
 ```
 
+- **Código:** [`sintacc-actor/src/main.py`](sintacc-actor/src/main.py) (solo arma el Actor) y los módulos de `src/`.
+- **Input:** [`sintacc-actor/.actor/input_schema.json`](sintacc-actor/.actor/input_schema.json).
+- **Output:** [`output_schema.json`](sintacc-actor/.actor/output_schema.json) y [`dataset_schema.json`](sintacc-actor/.actor/dataset_schema.json) (vistas de la tabla de resultados).
+- **Cómo correrlo:** en Apify Console (**Start** con el input de arriba), por API (`POST`, ver [`sintacc-actor/README.md`](sintacc-actor/README.md#uso-por-api)) o automático desde Make. Para subir cambios: build desde GitHub (Link Git repository) o `apify push` dentro de `sintacc-actor/`.
+
 La tercera forma es el plan B sin modelo: compara contra la mediana de la categoría. El detalle técnico (input, output, API, costos, decisiones de datos) está en [`sintacc-actor/README.md`](sintacc-actor/README.md).
 
 **Costo:** USD 0,007 por corrida de `analytics` y USD 0,005 por corrida de `inference`. Corriendo una vez por semana son unos USD 0,05 por mes, dentro del crédito gratis de Apify.
+
+### 5.1 Funciones de ETL, preprocesamiento y modelo
+
+| Función | Input | Output | Qué hace |
+|---|---|---|---|
+| `extraer.obtener_datos()` | input del Actor (`source`, `csvStore`) | publicaciones y locales crudos | Lee los CSV del store por el SDK de Apify o corre los extractores |
+| `etl_ml.procesar()` | publicaciones crudas | publicaciones limpias | Limpieza, categoría, exclusiones, correcciones, peso y pack, precio/kg, outliers, 90/10 |
+| `parseo.peso_unidad_kg()` · `parseo.unidades_pack_serie()` | título | kg de una unidad · unidades del pack | Reglas (regex) probadas con títulos reales |
+| `etl_maps.procesar()` | locales crudos | locales limpios | Sin TACC (confirmado o por búsqueda), tipo de local, competencia a 2 km |
+| `muestra.sortear()` | tabla y estratos | columna `muestra` | 90 % de trabajo y 10 % reservado (semilla 42) |
+| `eda.resumen()` | publicaciones y locales limpios | indicadores (JSON) | KPIs del dashboard y controles contra el Colab |
+| `modelo.cargar()` · `modelo.predecir()` | `.pkl` y columnas | precio esperado · reseñas esperadas | El pipeline hace el preprocesamiento (log1p y columnas 0/1) y el Random Forest predice; se deshace el logaritmo |
+| `inferencia.semaforo()` | publicaciones y precio esperado | `insights` | Diferencia contra lo esperado y color del semáforo |
+| `anmat.preparar_listado()` · `anmat.validar()` | listado ANMAT y publicaciones | nivel ANMAT por publicación | Cruce por marca y palabras clave (rapidfuzz) |
+| `menu.costeo()` | `insights` | una fila por plato | Costo por porción típico contra el del radar y ahorro por mes |
+| `inferencia.popularidad_locales()` | locales y reseñas esperadas | `popularidad` | Reseñas reales contra las esperadas |
+| `salida.filas_tabla()` | una tabla | filas del dataset | Agrega `tabla` y `fecha_corrida` |
+
+**Modelo seleccionado:** Random Forest (precio, Mercado Libre). Explica el 74 % de la variación del precio en datos no vistos, ya estaba exportado y es el mejor en Google Maps. Alternativas: Gradient Boosting (empatado en la validación, se mantuvo el RF), árbol de decisión, Ridge y MLP (menor R² en la validación). Detalle en la [sección 7](#7-métrica-del-modelo).
+
+### 5.2 Contrato de la operación `inference`
+
+| Campo | Dirección | Tipo | Descripción |
+|---|---|---|---|
+| `operation` | input | string: `"inference"` | Obligatorio |
+| `metodo` | input | string: `"modelo"` (por defecto) o `"mediana"` | Modelo de DS o plan B sin modelo |
+| `csvStore` | input | string (ID de key-value store, solo lectura) | Store con el listado ANMAT. Opcional: sin él, `anmat = sin_listado` |
+| `productos.csv` · `locales.csv` | input (store `radar-sintacc`) | CSV | Última salida de `analytics` |
+| `idPublicacion` · `articuloTitulo` · `categoria` | output (`tabla = insights`) | string | Una fila por publicación |
+| `precio` · `precio_esperado` · `precio_por_kg` · `referencia_kg` | output | number (pesos) | Precio real y el esperado por el modelo |
+| `diferencia_pct` · `ahorro_por_kg` | output | number, o null en "revisar" | Cuánto más barato o caro que lo esperado |
+| `semaforo` | output | string: `verde` / `amarillo` / `rojo` / `revisar` | Recomendación de compra |
+| `motivo` · `metodo` | output | string | Explicación en una frase y método usado |
+| `anmat` | output | string: `validado` / `marca_en_listado` / `no_encontrado` / `sin_listado` | Validación contra ANMAT |
+| `anmat_similitud` | output | integer de 0 a 100, o null | Cobertura de las palabras clave |
+| `recomendado` | output | integer: 1 o 0 | 1 = verde y validado ("barato y seguro"). Sin listado ANMAT, 1 = verde |
+| `plato` · `costo_porcion_tipico` · `costo_porcion_radar` · `ahorro_pct` · `ahorro_mes` · `publicacion_recomendada` | output (`tabla = menu`) | string / number | Kit "Menú Sin TACC" |
+| `placeId` · `resenas` · `resenas_esperadas` · `razon_resenas` · `popularidad` | output (`tabla = popularidad`) | string / number | Modelo de Google Maps |
+| `fecha_corrida` | output | string (AAAA-MM-DD) | En todas las filas |
+
+Además deja `insights.csv`, `menu.csv`, `popularidad.csv` y `RESUMEN_INFERENCE` (JSON) en el store de la corrida y en `radar-sintacc`.
+
+### 5.3 Costo computacional de una corrida de `inference`
+
+| Concepto | Valor |
+|---|---|
+| Tiempo por corrida | ≈ 5 s (831 publicaciones y 407 locales) |
+| Memoria / CPU | **[COMPLETAR: Apify → Runs → corrida de inference → memoria asignada y Compute Units]** |
+| Costo en Apify | USD 0,005 por corrida (medido el 19/11) |
+| Costo estimado por 1.000 registros | ≈ USD 0,006 (0,005 ÷ 831 publicaciones × 1.000). Es una cota alta: buena parte del costo es el arranque del contenedor, que no crece con los registros |
 
 ## 6. Métrica de negocio
 
@@ -181,7 +245,15 @@ El modelo principal estima el **precio esperado** de cada publicación según su
 
 **Reproducibilidad:** semilla 42; el 10 % reservado se separa antes de cualquier análisis; el Actor reproduce los datos del Colab (mismos controles y R² 0,744 con el modelo exportado); scikit-learn 1.6.1 fijo. Código de la comparación en [`entrenamiento/`](entrenamiento/).
 
-## 8. Limitaciones
+## 8. Cómo correr el proyecto
+
+1. **Tests (en la compu):** `cd sintacc-actor && pip install -r requirements-dev.txt && python -m pytest -q`. Con `RADAR_ML_CSV` y `RADAR_MAPS_CSV` apuntando a los CSV del 12/11, corren también los controles contra el Colab.
+2. **Actor en Apify:** cargar una vez los CSV con `python scripts/subir_csv_a_apify.py` (y el listado ANMAT con `--anmat`); correr `analytics` y después `inference`, desde Apify Console o por API ([`sintacc-actor/README.md`](sintacc-actor/README.md)).
+3. **Notebooks:** abrir el Colab del equipo (link en la [sección 5](#5-código-del-actor-de-apify)). La comparación de modelos se repite con `python entrenamiento/comparar_modelos.py ml.csv maps.csv`.
+4. **Datos:** crudos en el Drive del equipo y en el store de entrada de Apify; procesados en el store `radar-sintacc` y en la Google Sheet.
+5. **Automatización (opcional):** escenario de Make de la [sección 3](#3-arquitectura-y-flujo-automático-make).
+
+## 9. Limitaciones
 
 - **Una sola fecha (12/11/2026):** todavía no hay histórico de precios para avisar de una "baja". El Actor ya acepta una extracción nueva (`source: apify`) con el extractor de Mercado Libre; falta programarla para acumular semanas.
 - **El modelo vio el 90 % al entrenar:** en esas publicaciones el precio esperado se parece más al real que en datos nuevos, así que el semáforo es conservador (marca menos verdes y rojos de los que marcaría con publicaciones nuevas).
@@ -190,14 +262,14 @@ El modelo principal estima el **precio esperado** de cada publicación según su
 - **Validación ANMAT por título:** Mercado Libre no trae la marca ni el RNPA, así que el cruce es por las palabras del título. Es prudente a propósito: si no está seguro, deja la publicación en "verificar" y no la recomienda. La confirmación final es el RNPA del envase.
 - **Locales:** solo capitales, y Jujuy concentra el 73 %. Solo 11 de 407 declaran sin TACC; las reseñas miden popularidad, no ventas.
 
-## 9. Próximos pasos
+## 10. Próximos pasos
 
 1. Cruzar por RNPA (el número del envase) para pasar de 205 a más productos validados.
 2. Programar extracciones semanales para construir el histórico y avisar las bajas de precio por mail o WhatsApp.
 3. Clasificar con IA las reseñas de los locales "solo por búsqueda" para confirmar si son aptos.
 4. Hacer entrevistas a 5 o 10 locales para medir cuántos kilos compran y cuánto pagarían.
 
-## 10. Equipo
+## 11. Equipo
 
 | Rol | Persona | Aporte |
 |---|---|---|

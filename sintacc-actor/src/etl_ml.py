@@ -11,7 +11,7 @@ import pandas as pd
 
 from . import reglas
 from .muestra import sortear
-from .parseo import normalizar, peso_unidad_kg, unidades_pack
+from .parseo import normalizar_serie, peso_unidad_kg, unidades_pack_serie
 
 
 def limpiar(crudo: pd.DataFrame) -> pd.DataFrame:
@@ -39,7 +39,7 @@ def categorizar(ml: pd.DataFrame) -> pd.DataFrame:
 
 def excluir(ml: pd.DataFrame) -> pd.DataFrame:
     """Exclusiones del 16/11, aplicadas después del sorteo (misma regla para el 90 % y el 10 %)."""
-    titulo = ml["articuloTitulo"].map(normalizar)
+    titulo = normalizar_serie(ml["articuloTitulo"])
     nugget = titulo.str.contains(reglas.EXCLUIR_NUGGET) & ~titulo.str.contains(reglas.SALVA_NUGGET)
     fuera = ml["idPublicacion"].isin(reglas.EXCLUIR_IDS_ML)
     return ml[~(nugget | fuera)].reset_index(drop=True)
@@ -61,7 +61,7 @@ def crear_features(ml: pd.DataFrame) -> pd.DataFrame:
 
     # 1. Lectura del título
     ml["peso_unidad_kg"] = ml["articuloTitulo"].apply(peso_unidad_kg)
-    ml["unidades_pack"] = ml["articuloTitulo"].apply(unidades_pack)
+    ml["unidades_pack"] = unidades_pack_serie(ml["articuloTitulo"])
     fuera = ~ml["peso_unidad_kg"].between(reglas.PESO_MIN_KG, reglas.PESO_MAX_KG)
     ml.loc[fuera, "peso_unidad_kg"] = np.nan  # peso imposible = mal leído
 

@@ -24,9 +24,12 @@ Make (programado, semanal) · 6 operaciones por corrida
        eda.py        indicadores de negocio
        salida.py     filas del dataset e historial de precios
      └─> store `radar-sintacc`: productos.csv, locales.csv, historial_kpi.csv, RESUMEN
-  2. Actor {operation: "inference"}
-       inferencia.py semáforo de compra (lee productos.csv del paso 1)
-     └─> store `radar-sintacc`: insights.csv, RESUMEN_INFERENCE
+  2. Actor {operation: "inference", csvStore: <ID>}
+       modelo.py     carga modelos/*.pkl y predice (no entrena)
+       inferencia.py semáforo de compra y popularidad de locales (lee productos.csv y locales.csv del paso 1)
+       anmat.py      validación contra el listado oficial de ANMAT
+       menu.py       kit "Menú Sin TACC": costo por plato
+     └─> store `radar-sintacc`: insights.csv, menu.csv, popularidad.csv, RESUMEN_INFERENCE
   3. Google Sheets (IMPORTDATA, una pestaña por archivo) ──> AppSheet (dashboard e insights)
 
   reglas.py: reglas de negocio (palabras clave, correcciones, límites, umbrales), separadas del código
@@ -38,6 +41,7 @@ Make (programado, semanal) · 6 operaciones por corrida
 | Parámetro | Default | Descripción |
 |---|---|---|
 | `operation` | `analytics` | `analytics` o `inference` |
+| `metodo` | `modelo` | Solo `inference`: `modelo` (Random Forest de DS) o `mediana` (plan B sin modelo) |
 | `source` | `csv` | `csv`: los CSV del 12/11 guardados en el key-value store `radar-sintacc-entrada` (demo, casi sin costo). `apify`: extracción nueva |
 | `csvStore` | — | ID del store `radar-sintacc-entrada` (fuente `csv`). Hace falta porque el Actor corre con **permisos limitados**: solo lee los stores que creó él o los que se le pasan en la entrada (solo lectura) |
 | `mlActorId` / `mlInput` | — | Extractor de Mercado Libre y su input, con `{busqueda}` donde va el texto (fuente `apify`) |
@@ -58,10 +62,10 @@ Make (programado, semanal) · 6 operaciones por corrida
 **Dataset**: una fila por registro; la columna `tabla` indica a qué tabla pertenece:
 
 - `productos`: una publicación limpia. Columna `muestra` = `trabajo` (90 %) o `reservado` (10 %).
-  - Features del modelo (5): `peso_log`, `unidades_log`, `envio_gratis`, `descuento_pct`, `categoria`. Objetivo: `log1p(precio)`.
+  - Features del modelo (5): peso, unidades del pack, `envio_gratis`, `descuento_pct`, `categoria`. Objetivo: `log1p(precio)`. El modelo exportado recibe `peso_total_kg` y `unidades_pack` y aplica el log1p adentro; `peso_log` y `unidades_log` quedan en la tabla para el análisis.
   - Para el dashboard: `venta_por_mayor`, `cantidad_vendida`, `cantidad_evaluaciones`, `tienda_oficial`, `precio_por_kg`, `peso_imputado`, `outlier_precio_kg` (y `peso_total_kg`, `unidades_pack`, `stock_bajo`).
 - `locales`: un local limpio, con `muestra`.
-  - Features del modelo (7): `fotos_log`, `sin_tacc_2km`, `sin_tacc_busqueda`, `sin_tacc_confirmado`, `calificacion`, `tipo_local`, `provincia`. Objetivo: `log1p(resenas)`.
+  - Features del modelo (7): fotos (el modelo recibe `cantidad_fotos` y aplica el log1p; `fotos_log` queda para el análisis), `sin_tacc_2km`, `sin_tacc_busqueda`, `sin_tacc_confirmado`, `calificacion`, `tipo_local`, `provincia`. Objetivo: `log1p(resenas)`.
   - Para el dashboard: `latitud`, `longitud`, `resenas`, `grupo_sin_tacc` (confirmado / busqueda / ninguno, para el color del mapa).
 - `kpi_categoria`: precio/kg minorista y mayorista y % de ahorro por categoría
 - `kpi_provincia`: locales y % con sin TACC confirmado por provincia
@@ -73,7 +77,7 @@ Todas llevan `fecha_corrida`: cada ejecución semanal suma historia, y eso permi
 
 **Key-value store**: `RESUMEN` (todos los indicadores en JSON, incluidos los más vendidos y las zonas sin oferta, y los números de `controles`), `productos.csv` y `locales.csv`.
 
-Con los CSV del 12/11 los controles tienen que dar lo mismo que el Colab: 831 publicaciones (748 de trabajo, 91 por mayor, 85 con peso imputado, 19 outliers) y 407 locales (366 de trabajo, 10 confirmados, 90 por búsqueda). Lo verifica `tests/test_controles.py`.
+Con los CSV del 12/11 los controles tienen que dar lo mismo que el Colab: 831 publicaciones (748 de trabajo, 91 por mayor, 85 con peso imputado, 16 outliers) y 407 locales (366 de trabajo, 10 confirmados, 90 por búsqueda). Lo verifica `tests/test_controles.py`.
 
 ## Producto 2: operación `inference`
 
@@ -184,17 +188,19 @@ export APIFY_TOKEN=...      # nunca en el código
 python scripts/subir_csv_a_apify.py ml_sintacc_unificado.csv maps_unificado.csv
 ```
 
-Después, el Actor se corre con `{"operation": "analytics", "source": "csv"}`.
+Después, el Actor se corre con `{"operation": "analytics", "source": "csv", "csvStore": "<ID del store>"}`.
 
 ## Estructura
 
 ```
 .actor/        actor.json, input_schema.json, output_schema.json, dataset_schema.json (vistas del Output)
 src/           main.py (solo arma el Actor)
-               extraer.py · etl_ml.py · etl_maps.py · muestra.py · parseo.py · eda.py · salida.py · inferencia.py
+               extraer.py · etl_ml.py · etl_maps.py · muestra.py · parseo.py · eda.py · salida.py
+               modelo.py · inferencia.py · anmat.py · menu.py
                reglas.py (reglas de negocio)
 modelos/       modelos ya entrenados para inference (Producto 2)
-scripts/       subir_csv_a_apify.py (se corre fuera del Actor)
-tests/         test_parseo.py · test_controles.py · test_salida.py · test_inferencia.py · test_lineamientos.py · test_esquemas.py
+scripts/       subir_csv_a_apify.py · preparar_anmat.py (se corren fuera del Actor)
+tests/         test_parseo.py · test_controles.py · test_salida.py · test_inferencia.py · test_anmat.py
+               test_menu.py · test_lineamientos.py · test_esquemas.py
 requirements.txt (imagen del Actor, versiones fijas) · requirements-dev.txt (tests y scripts)
 ```

@@ -36,3 +36,12 @@ def test_sin_listado_no_rompe():
 
 def test_normalizar_saca_tildes_y_signos():
     assert anmat.normalizar("Fécula de Mandioca | SIN T.A.C.C.") == "fecula de mandioca sin t a c c"
+
+
+def test_tolera_tipeos_y_marca_mas_larga():
+    """'Harina de aroz' (con tipeo) valida; si dos marcas aparecen, gana la más larga."""
+    listado = anmat.preparar_listado(pd.DataFrame({
+        "marca": ["Natural", "Natural Pop"], "producto": ["Harina de arroz", "Harina de arroz"]}))
+    prods = pd.DataFrame({"idPublicacion": ["X"], "articuloTitulo": ["Harina de aroz Natural Pop 500 g"]})
+    r = anmat.validar(prods, listado).iloc[0]
+    assert r["anmat"] == anmat.VALIDADO and r["anmat_marca"] == "natural pop"
