@@ -42,11 +42,15 @@ def costeo(insights: pd.DataFrame, recetas: list[dict] = reglas.RECETAS) -> pd.D
                 "publicacion_recomendada": m["articuloTitulo"], "idPublicacion": m["idPublicacion"],
                 "precio_publicacion": m["precio"],
             })
-            if fila["costo_porcion_tipico"] is not None:
-                ahorro = fila["costo_porcion_tipico"] - costo_radar
-                fila.update({"ahorro_porcion": ahorro,
-                             "ahorro_pct": round(100 * ahorro / fila["costo_porcion_tipico"], 1),
-                             "ahorro_mes": ahorro * r["porciones_mes"]})
+        elif fila["costo_porcion_tipico"] is not None:
+            # Sin oportunidad recomendada: se compra al precio típico (ahorro cero, no se inventa)
+            fila.update({"precio_kg_radar": kg_tipico, "costo_porcion_radar": fila["costo_porcion_tipico"],
+                         "publicacion_recomendada": "Sin oportunidad recomendada: precio típico"})
+        if fila.get("costo_porcion_radar") is not None and fila["costo_porcion_tipico"] is not None:
+            ahorro = fila["costo_porcion_tipico"] - fila["costo_porcion_radar"]
+            fila.update({"ahorro_porcion": ahorro,
+                         "ahorro_pct": round(100 * ahorro / fila["costo_porcion_tipico"], 1),
+                         "ahorro_mes": ahorro * r["porciones_mes"]})
         filas.append(fila)
     return pd.DataFrame(filas)
 

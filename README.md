@@ -28,7 +28,7 @@ Lo que **no** medimos: cuántas personas celíacas no encuentran dónde comer, n
 | Producto | Operación | Qué responde |
 |---|---|---|
 | 1 · Analytics | `analytics` | ¿Cuánto cuesta por kilo cada insumo? ¿Cuánto se ahorra comprando por mayor (de 6 % en pan a 42 % en fideos)? ¿Dónde hay locales con y sin oferta sin TACC? |
-| 2 · Inference | `inference` | ¿**Qué publicación conviene comprar**? Un semáforo que compara cada precio con el **precio esperado por el modelo** para su peso, su pack y su categoría |
+| 2 · Inference | `inference` | ¿**Qué conviene comprar, que además sea seguro**? Un semáforo que compara cada precio con el **precio esperado por el modelo**, la **validación contra el listado oficial de ANMAT** y el **costo de cada plato sin TACC** |
 
 **Semáforo de compra** (831 publicaciones):
 
@@ -43,6 +43,28 @@ Los cortes son simétricos: pagar 0,75 veces lo esperado es el espejo de pagar 1
 
 **Las publicaciones dudosas no se borran**, se marcan como "revisar". Un precio extraño no es necesariamente un error: puede ser una publicación mal armada o un precio anómalo que conviene mirar. Por eso preferimos mostrarlo apartado en lugar de eliminarlo.
 
+**Barato y seguro (validación ANMAT):** que el título diga "sin TACC" lo escribe el vendedor. Cada publicación se cruza con el **Listado Integrado de Alimentos Libres de Gluten de ANMAT** (descarga del 23/11/2026: 25.703 productos vigentes de 4.679 marcas). Primero se busca la marca en el título; después, que las palabras clave del producto coincidan con un producto registrado de esa marca.
+
+| Nivel | Qué significa | Publicaciones |
+|---|---|---|
+| ✅ Validado | Marca y producto en el listado oficial | 205 |
+| 🔎 Verificar | La marca tiene productos autorizados, pero este no se encontró | 436 |
+| ❌ No figura | La marca no está en el listado | 190 |
+
+**Se recomienda solo lo que es verde y está validado: 25 publicaciones "baratas y seguras"**, de las 61 verdes.
+
+**Kit "Menú Sin TACC"** (la idea que nos sugirió Juan): para 5 platos base calcula el costo del insumo sin TACC por porción, con el precio típico y con la mejor opción barata y validada. Esa opción sale como una publicación concreta para comprar.
+
+| Plato | Costo típico por porción | Con el radar | Comprar |
+|---|---|---|---|
+| Fideos con salsa | $2.610 | $1.056 | Fideos Matarazzo mix de legumbres |
+| Milanesa rebozada | $661 | $435 | Rebozador Sturla de garbanzo y lino |
+| Pizza individual | $1.318 | $1.049 | Premezcla universal Delicel |
+| Masa de tarta | $515 | $214 | Harina de arroz Dicomere |
+| Sándwich | $3.838 | $3.838 | Sin opción barata y validada: precio típico |
+
+Con 2 porciones por día de cada plato, el local pasa de **$536.520 a $395.520 por mes** en insumos sin TACC: **$141.000 menos (26 %)**. Es un ahorro potencial. Las porciones y cantidades son supuestos editables (`reglas.RECETAS`).
+
 Además, el modelo de Google Maps compara las reseñas reales de cada local con las esperadas. Así marca los locales más populares de lo esperado (11) como clientes potenciales a los que conviene ofrecerles los insumos.
 
 ## 3. Flujo automático (Make)
@@ -53,7 +75,7 @@ Además, el modelo de Google Maps compara las reseñas reales de cada local con 
 2. **Filtro `status = SUCCEEDED`** y **Rollback**: si el Actor falla, el escenario frena y no toca la Sheet.
 3. **PRODUCTOS, LOCALES, HISTORIAL_KPI**: actualizan cada pestaña de Google Sheets (`IMPORTDATA`, con un parámetro de tiempo que obliga a recargar en el momento).
 4. **APIFY INFERENCE**: corre el Actor con `operation: inference`, que carga los modelos y calcula el semáforo.
-5. **INSIGHTS**: actualiza la pestaña del semáforo.
+5. **INSIGHTS** y **MENU**: actualizan la pestaña del semáforo (con la validación ANMAT) y la del menú.
 6. **AppSheet** lee la Sheet y la app se actualiza sola.
 
 Corre **una vez por semana** (programado) o a mano. Usa 6 operaciones por corrida, dentro del plan gratis de Make.
@@ -84,6 +106,8 @@ sintacc-actor/                  el Actor (es lo único que entra al build de Api
 │   ├── eda.py                  indicadores del dashboard
 │   ├── modelo.py               carga de los modelos y predicción
 │   ├── inferencia.py           semáforo de compra y popularidad de locales
+│   ├── anmat.py                validación contra el listado oficial de ANMAT
+│   ├── menu.py                 kit "Menú Sin TACC": costo por plato
 │   ├── salida.py               filas del dataset e historial
 │   └── reglas.py               reglas de negocio (umbrales, correcciones, categorías)
 ├── modelos/                    modelo_ml.pkl y modelo_maps.pkl (entrenados en el Colab)
@@ -97,7 +121,7 @@ docs/                           lineamientos R1 a R4 y captura de Make
 
 ```json
 { "operation": "analytics", "source": "csv", "csvStore": "<ID del store con los CSV>" }
-{ "operation": "inference" }
+{ "operation": "inference", "csvStore": "<ID del store con los CSV y el listado ANMAT>" }
 { "operation": "inference", "metodo": "mediana" }
 ```
 
@@ -159,12 +183,12 @@ El modelo principal estima el **precio esperado** de cada publicación según su
 - **El modelo vio el 90 % al entrenar:** en esas publicaciones el precio esperado se parece más al real que en datos nuevos, así que el semáforo es conservador (marca menos verdes y rojos de los que marcaría con publicaciones nuevas).
 - **Peso desde el título:** 93 de 831 publicaciones no dicen el peso y se estima con la mediana de su categoría. Esas quedan en "revisar".
 - **Valores extremos:** 20 de 831 publicaciones (16 en el 90 % de trabajo) tienen un precio por kilo fuera de los límites de su categoría.
-- **"Sin TACC" no está validado contra el listado de ANMAT:** el título lo escribe el vendedor. Es el próximo paso más importante.
+- **Validación ANMAT por título:** Mercado Libre no trae la marca ni el RNPA, así que el cruce es por las palabras del título. Es prudente a propósito: si no está seguro, deja la publicación en "verificar" y no la recomienda. La confirmación final es el RNPA del envase.
 - **Locales:** solo capitales, y Jujuy concentra el 73 %. Solo 11 de 407 declaran sin TACC; las reseñas miden popularidad, no ventas.
 
 ## 9. Próximos pasos
 
-1. Validar cada producto contra el listado oficial de ANMAT, para que el verde signifique "barato **y** apto".
+1. Cruzar por RNPA (el número del envase) para pasar de 205 a más productos validados.
 2. Programar extracciones semanales para construir el histórico y avisar las bajas de precio por mail o WhatsApp.
 3. Clasificar con IA las reseñas de los locales "solo por búsqueda" para confirmar si son aptos.
 4. Hacer entrevistas a 5 o 10 locales para medir cuántos kilos compran y cuánto pagarían.

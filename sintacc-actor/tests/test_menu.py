@@ -29,10 +29,12 @@ def test_costeo_compara_tipico_contra_la_mejor_oportunidad():
     assert m["ahorro_porcion"] == 650 and m["ahorro_mes"] == 19_500
 
 
-def test_categoria_sin_verdes_no_inventa_ahorro():
-    receta = [{"plato": "Sándwich", "insumo": "pan", "kg_porcion": 0.1, "porciones_mes": 30}]
-    m = menu.costeo(INSIGHTS, receta).iloc[0]
-    assert pd.isna(m.get("ahorro_mes"))
+def test_sin_oportunidad_se_cuenta_al_precio_tipico():
+    filas = INSIGHTS.copy()
+    filas["semaforo"] = filas["semaforo"].replace("verde", "amarillo")   # ningún verde
+    m = menu.costeo(filas, RECETA).iloc[0]
+    assert m["costo_porcion_radar"] == m["costo_porcion_tipico"] and m["ahorro_mes"] == 0
+    assert menu.resumen(menu.costeo(filas, RECETA))["ahorro_mes"] == 0
 
 
 def test_resumen_mensual_es_json():

@@ -151,10 +151,27 @@ RECETAS = [
 ]
 
 # ---------------------------------------------------------------- Producto 2: validación ANMAT
-# Similitud mínima (0 a 100, rapidfuzz token_set_ratio) entre el título y un producto registrado
-# de la misma marca para considerarlo "validado". Debajo queda "marca_en_listado" (revisar a mano).
-ANMAT_UMBRAL = 80
+# Un producto queda "validado" si, en algún producto registrado de su marca, aparecen al menos
+# ANMAT_MIN_CLAVES palabras clave del título y al menos ANMAT_COBERTURA (0 a 1) de ellas.
+# Palabras clave = el título sin marca, pesos, packs, formas de pasta ni frases como "sin tacc".
+# Dos palabras son iguales con similitud >= ANMAT_SIMILITUD_PALABRA (rapidfuzz, tolera tipeos).
+ANMAT_MIN_CLAVES = 2
+ANMAT_COBERTURA = 0.75
+ANMAT_SIMILITUD_PALABRA = 85
+ANMAT_UMBRAL = round(ANMAT_COBERTURA * 100)  # para mostrar la similitud en 0 a 100
+ANMAT_RUIDO = set("""
+sin con de del la el los las y e a al en para por x u un una unidad unidades und uds pack paquete caja bolsa
+g gr grs gramo gramos kg kgs kilo kilos k ml cc l lt litro litros cm
+tacc t a c c gluten free libre libres apto aptos celiaco celiacos celiaca celiacas vegano vegana veganos keto
+organico organica organicos bio natural naturales premium calidad primera extra fino fina tipo nuevo oferta envio gratis
+penne rigate spaghetti spaghettis espagueti tirabuzon tirabuzones fusilli mostachol mostacholes municion codito coditos
+tallarin tallarines rigatoni mono monos lasagna lasana noquis ravioles vermicelli cabellos cabello angel
+unid uni uds sintacc stacc fw ideal rico ricos
+""".split())
+# Sinónimos: se reemplazan antes de comparar
+ANMAT_SINONIMOS = {"fideo": "pasta", "fideos": "pasta", "pastas": "pasta", "fecula": "almidon",
+                   "harinas": "harina", "panes": "pan", "rebozadores": "rebozador", "premezclas": "premezcla"}
 # Marcas que no se buscan en el título: muy cortas o palabras comunes que darían falsos positivos.
 ANMAT_MARCA_MIN = 3
-ANMAT_MARCAS_GENERICAS = {"sin tacc", "sin gluten", "libre de gluten", "harina", "premezcla", "pan",
+ANMAT_MARCAS_GENERICAS = {"sin tacc", "sin gluten", "libre de gluten", "gluten free", "celiacos", "harina", "premezcla", "pan",
                           "fideos", "arroz", "maiz", "natural", "la", "el", "de", "s a", "srl", "sa"}

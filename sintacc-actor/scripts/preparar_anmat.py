@@ -36,13 +36,26 @@ def _columna(df: pd.DataFrame, *claves: str) -> str | None:
 
 
 def convertir(df: pd.DataFrame) -> pd.DataFrame:
+    """Una fila por (marca, producto). Solo productos vigentes y activos; las marcas compuestas
+    ("NESTLÉ - FRIGOR - TORPEDO") se separan; "NO REGISTRA" se ignora."""
     marca = _columna(df, "marca")
     if marca is None:
         sys.exit(f"No encuentro la columna de marca. Columnas: {list(df.columns)}")
+    estado, activo = _columna(df, "estado"), _columna(df, "activo")
+    if estado:
+        df = df[df[estado].astype(str).str.upper().str.strip() == "VIGENTE"]
+    if activo:
+        df = df[df[activo].astype(str).str.lower().str.strip().isin(["sí", "si", "true", "1"])]
     partes = [c for c in (_columna(df, "fantasia"), _columna(df, "denominacion", "denominación", "producto"))
               if c is not None]
-    producto = df[partes].fillna("").astype(str).agg(" ".join, axis=1).str.strip()
-    out = pd.DataFrame({"marca": df[marca].astype(str).str.strip(), "producto": producto})
+    textos = df[partes].fillna("").astype(str).replace(r"(?i)^\s*no registra\s*$", "", regex=True)
+    producto = textos.agg(" ".join, axis=1).str.replace(r"\s+", " ", regex=True).str.strip()
+    tipo = _columna(df, "tipoproducto", "tipo")
+    out = pd.DataFrame({"marca": df[marca].astype(str), "producto": producto,
+                        "tipo": df[tipo].astype(str) if tipo else ""})
+    out["marca"] = out["marca"].str.split(r"\s+-\s+|/")
+    out = out.explode("marca")
+    out["marca"] = out["marca"].str.strip()
     return out[(out["marca"] != "") & (out["producto"] != "")].drop_duplicates()
 
 
