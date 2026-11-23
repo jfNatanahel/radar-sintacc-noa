@@ -11,6 +11,8 @@ Reglas finales acordadas con Data Science el 16/11 (Documentación del CAPSTONE,
 import re
 import unicodedata
 
+import pandas as pd
+
 UNIDAD_PESO = r"(?:kilogramos?|kilos?|kgr?s?|k|gramos?|grs?|g)"
 _NUM = r"\d+(?:[.,]\d+)?"
 # Otras unidades: un "x 3" seguido de una de estas no es un pack
@@ -61,11 +63,35 @@ def peso_unidad_kg(titulo: str) -> float | None:
     return n if m.group(2).startswith("k") else n / 1000
 
 
-def unidades_pack(titulo: str) -> int:
-    """Cantidad de unidades del pack (de 2 a 50). Si el título no lo dice, 1."""
-    t = normalizar(titulo)
+# Marcas diacríticas (tildes, diéresis, etc.) que deja la descomposición NFKD
+_DIACRITICOS = r"[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]"
+
+
+def normalizar_serie(titulos: pd.Series) -> pd.Series:
+    """`normalizar` vectorizado con los métodos .str de pandas (sin recorrer fila por fila)."""
+    return (titulos.astype(str).str.lower()
+            .str.replace(r"\bn(?:ro|°|º|\.)\s*\d+", " ", regex=True)
+            .str.normalize("NFKD").str.replace(_DIACRITICOS, "", regex=True)
+            .str.replace(r"\s*c/u", " c/u", regex=True).str.strip())
+
+
+def unidades_pack_serie(titulos: pd.Series) -> pd.Series:
+    """Unidades del pack (de 2 a 50) de todos los títulos a la vez; 1 si el título no lo dice.
+
+    Vectorizado: en vez de recorrer los títulos con un for (o .apply), cada patrón se aplica a la
+    columna entera con `str.extractall`. Se respeta la prioridad de `_PACKS`: gana el primer patrón
+    con una cantidad válida y, dentro de él, la primera coincidencia del título.
+    Solo se recorren los 6 patrones, nunca las filas.
+    """
+    t = normalizar_serie(titulos.reset_index(drop=True))
+    pack = pd.Series(float("nan"), index=t.index)
     for patron in _PACKS:
-        for m in patron.finditer(t):
-            if PACK_MIN <= int(m.group(1)) <= PACK_MAX:
-                return int(m.group(1))
-    return 1
+        n = t.str.extractall(patron)[0].astype(int)
+        primera = n[n.between(PACK_MIN, PACK_MAX)].groupby(level=0).first()
+        pack = pack.fillna(primera)
+    return pd.Series(pack.fillna(1).astype(int).to_numpy(), index=titulos.index)
+
+
+def unidades_pack(titulo: str) -> int:
+    """Cantidad de unidades del pack para UN título (usa la versión vectorizada)."""
+    return int(unidades_pack_serie(pd.Series([titulo])).iloc[0])

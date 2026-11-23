@@ -113,7 +113,7 @@ sintacc-actor/                  el Actor (es lo único que entra al build de Api
 │   └── reglas.py               reglas de negocio (umbrales, correcciones, categorías)
 ├── modelos/                    modelo_ml.pkl y modelo_maps.pkl (entrenados en el Colab)
 ├── scripts/                    carga de los CSV a Apify (se corre fuera del Actor)
-└── tests/                      63 tests: parseo, controles contra el Colab, modelos, semáforo y reglas R1 a R4
+└── tests/                      71 tests: parseo, controles contra el Colab, modelos, semáforo y reglas R1 a R4
 entrenamiento/                  comparación de los 5 modelos candidatos (fuera del Actor)
 docs/                           lineamientos R1 a R4 y captura de Make
 ```

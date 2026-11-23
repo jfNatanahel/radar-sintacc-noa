@@ -28,11 +28,15 @@ def leer(ruta: str) -> pd.DataFrame:
 
 
 def _columna(df: pd.DataFrame, *claves: str) -> str | None:
-    for clave in claves:
-        for c in df.columns:
-            if clave in c.lower():
-                return c
-    return None
+    """Primera columna cuyo nombre contiene alguna de las claves (en orden de prioridad).
+
+    Sin for: el nombre de cada columna se compara con todas las claves de una vez con los métodos
+    .str de pandas, y se toma la primera coincidencia de la clave de mayor prioridad.
+    """
+    nombres = pd.Series(df.columns, dtype="object").astype(str).str.lower()
+    coincide = pd.DataFrame({k: nombres.str.contains(k, regex=False) for k in claves})
+    encontradas = coincide.any()[lambda s: s]  # claves con al menos una columna, en orden
+    return None if encontradas.empty else df.columns[coincide[encontradas.index[0]].idxmax()]
 
 
 def convertir(df: pd.DataFrame) -> pd.DataFrame:

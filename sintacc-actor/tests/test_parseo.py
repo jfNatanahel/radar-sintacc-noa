@@ -5,7 +5,9 @@ Correr con:  python -m pytest -q
 
 import pytest
 
-from src.parseo import peso_unidad_kg, unidades_pack
+import pandas as pd
+
+from src.parseo import peso_unidad_kg, unidades_pack, unidades_pack_serie
 
 PESOS = [
     ("Premezcla Para Ñoquis Delicel Sin Tacc 500g", 0.5),
@@ -68,3 +70,11 @@ def test_peso(titulo, esperado):
 @pytest.mark.parametrize("titulo,esperado", PACKS)
 def test_pack(titulo, esperado):
     assert unidades_pack(titulo) == esperado
+
+
+def test_pack_vectorizado_igual_que_de_a_uno():
+    """La versión por columna (sin for) da lo mismo que título por título y respeta el índice."""
+    titulos = pd.Series([t for t, _ in PACKS], index=[f"id{i}" for i in range(len(PACKS))])
+    r = unidades_pack_serie(titulos)
+    assert list(r.index) == list(titulos.index)
+    assert r.tolist() == [esperado for _, esperado in PACKS]
