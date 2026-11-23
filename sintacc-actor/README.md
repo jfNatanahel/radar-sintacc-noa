@@ -77,22 +77,29 @@ Con los CSV del 12/11 los controles tienen que dar lo mismo que el Colab: 831 pu
 
 ## Producto 2: operación `inference`
 
-Lee `productos.csv` del store `radar-sintacc` (lo que dejó la última corrida de `analytics`) y le pone un semáforo a cada publicación:
+Lee `productos.csv` y `locales.csv` del store `radar-sintacc` (lo que dejó la última corrida de `analytics`) y aplica los modelos de Data Science, que están en `modelos/` (ver su README). No entrena (R2) ni descarga los modelos (R3).
+
+**Semáforo de compra** (modelo de precio, `metodo = modelo_random_forest`): para cada publicación, el modelo calcula el **precio esperado** según su peso total, las unidades del pack, la categoría, el envío gratis y el descuento. Después lo compara con el precio real:
 
 | Color | Cuándo | Para el cliente |
 |---|---|---|
-| verde | precio por kg al menos 25 % por debajo de lo normal (0,75 veces) | oportunidad de compra |
-| amarillo | entre los dos umbrales | precio normal |
+| verde | precio al menos 25 % por debajo del esperado (0,75 veces) | oportunidad de compra |
+| amarillo | entre los dos umbrales | precio acorde |
 | rojo | al menos 33 % por encima (1,33 veces = 1 ÷ 0,75) | cara |
 | revisar | peso estimado o precio por kg fuera de rango | el precio por kg no es confiable |
 
-**Lo normal** (método `mediana_categoria`, plan B mientras no esté el modelo): la mediana del precio por kg de su categoría y tipo de venta (minorista o mayorista), calculada solo con el 90 % de trabajo y sin outliers. Si el grupo tiene menos de 5 publicaciones, se usa la mediana de toda la categoría. Los umbrales están en `reglas.py` y son simétricos en proporción (con ±25 % el rojo quedaba más cerca que el verde).
+**Plan B** (`{"operation": "inference", "metodo": "mediana"}`, `metodo = mediana_categoria`): compara contra la mediana del precio por kg de su categoría y tipo de venta (90 % de trabajo, sin outliers). Sirve si el modelo no está disponible. Mezcla productos distintos dentro de una categoría, por eso el método principal es el modelo.
 
-Cuando Data Science entregue el modelo (`modelos/`), lo normal pasa a ser el precio esperado por el modelo. El Actor no entrena (R2) ni descarga el modelo (R3).
+**Popularidad de locales** (modelo de reseñas): compara las reseñas reales de cada local con las esperadas según sus fotos, su calificación, su oferta sin TACC, su tipo y su provincia. "Por encima de lo esperado" quiere decir el doble o más; "por debajo", la mitad o menos.
 
-**Salida:** dataset con `tabla = insights`; `insights.csv` y `RESUMEN_INFERENCE` en el store de la corrida y en `radar-sintacc`. Columnas: `idPublicacion`, `articuloTitulo`, `categoria`, `venta_por_mayor`, `muestra`, `precio`, `precio_por_kg`, `referencia_kg`, `diferencia_pct`, `ahorro_por_kg`, `semaforo`, `motivo`, `metodo`.
+**Salida:**
+- **Dataset:** filas con `tabla = insights` y `tabla = popularidad`.
+- **Archivos:** `insights.csv`, `popularidad.csv` y `RESUMEN_INFERENCE`, en el store de la corrida y en `radar-sintacc`.
+- **Columnas de insights:** `idPublicacion`, `articuloTitulo`, `categoria`, `venta_por_mayor`, `muestra`, `precio`, `precio_esperado`, `precio_por_kg`, `referencia_kg` (esperado por kg), `diferencia_pct`, `ahorro_por_kg`, `semaforo`, `motivo`, `metodo`.
 
-**Salvedad:** es un **ahorro potencial**, no demostrado: lo verde es más barato porque se eligió por barato. La prueba real sería un piloto con un local.
+**Salvedades:**
+- Es un **ahorro potencial**, no demostrado: lo verde es más barato porque se eligió por barato.
+- El modelo se entrenó con el 90 % de trabajo. En esas publicaciones el precio esperado se parece más al real, así que el semáforo es conservador.
 
 ## Uso por API
 
@@ -133,6 +140,7 @@ Entra en el crédito gratis de Apify (USD 5 por mes). La fuente `apify` (extracc
 Todas acordadas con Data Science (registro de decisiones en la Documentación del CAPSTONE, 15/11 y 16/11).
 
 - **Orden:** limpieza → sorteo del 10 % → exclusiones → lectura del título → correcciones manuales → venta por mayor → peso faltante → precio/kg → outliers.
+- **Categoría** = la clasificación de Mercado Libre (`produtoDomainID`: pastas → fideos, harinas → harina, panes → pan, premezclas dulces y saladas → premezcla, pan rallado → rebozador), más 4 féculas que van a harina (DS, 18/11). La palabra de búsqueda metía ruido (fécula y harina de arveja caían en "pan"). Se conserva en `categoria_busqueda`, porque el sorteo 90/10 se hace con ella y así el 10 % reservado es el mismo que en el Colab.
 - **Peso y pack** salen del título con reglas (`parseo.py`), probadas con títulos reales en `tests/test_parseo.py`. En "3 x 5 kg" el peso es el de una unidad. Si el peso de una unidad no figura, se completa con la mediana de su categoría (calculada solo con el 90 %) y queda marcado en `peso_imputado`.
 - **Correcciones manuales y exclusiones** (13 publicaciones corregidas y 8 excluidas, revisadas una por una) están en `reglas.py`, por código de publicación.
 - **Precio/kg** se usa para el análisis, no como feature del modelo (depende del precio, que es la variable objetivo). Se marca `outlier_precio_kg` con límites fijos por categoría (`reglas.LIMITES_PRECIO_KG`); no se elimina ninguna fila y los marcados no entran en los indicadores.
