@@ -83,6 +83,7 @@ Corre **una vez por semana** (programado) o a mano. Usa 6 operaciones por corrid
 ## 4. La demo
 
 Video de la demo: **[COMPLETAR: link al video]**
+Link visualización de la App (AppSheet) - requiere iniciar sesión con una cuenta autorizada: https://www.appsheet.com/start/cba1284d-0643-41e3-b487-2e9ecff2e803?platform=desktop#appName=RadarSinTACC%C2%B7DatosautodesdeApify-467717521&vss=H4sIAAAAAAAAA62OvQrCMBRG3-Wb8wRZxUFEHRQX0yE2txBsk9Ikagl5d2_9QVyL4_0u53AyrpZu-6jrC-Qpf681jZDICoexJwWpsPAuDr5VEApb3b3GXe-HmJw12lBQKCiV-EgiBcg8wyH_0CFgDbloG0vDJJxwFr1hfk8oDz8gikCXoj639OxnsBTeGl-nQObIUXNjwsot7712ZuMNexvdBioPmH-VkH4BAAA=&view=Oportunidades 
 
 La app (AppSheet) muestra:
 1. **Oportunidades de compra:** las publicaciones en verde, con el precio real, el precio esperado y el motivo en una frase (por ejemplo "54 % más barato que lo esperado para su peso, pack y categoría").
