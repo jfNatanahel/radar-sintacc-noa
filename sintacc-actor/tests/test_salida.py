@@ -36,3 +36,30 @@ def test_csv_del_store():
     assert csv_a_tabla("a,b\n1,2\n", "x").shape == (1, 2)
     with pytest.raises(ValueError, match="subir_csv_a_apify"):
         csv_a_tabla(None, "ml_unificado.csv")
+
+
+def test_modelo_falta_da_un_error_claro(tmp_path):
+    import pytest
+    from src import modelo
+    with pytest.raises(FileNotFoundError, match="R2 y R3"):
+        modelo.cargar("no_existe.pkl", carpeta=tmp_path)
+
+
+def test_modelo_carga_un_pipeline_y_vuelve_a_pesos(tmp_path):
+    """Simula el .pkl de DS: un Pipeline entrenado afuera (acá, en el test) que predice log1p."""
+    import joblib
+    import numpy as np
+    from sklearn.compose import ColumnTransformer
+    from sklearn.linear_model import LinearRegression
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import OneHotEncoder
+    from src import modelo
+    df = pd.DataFrame({"peso_total_kg": [0.5, 1, 2, 5], "unidades_pack": [1, 1, 2, 5],
+                       "envio_gratis": [0, 1, 1, 1], "descuento_pct": [0, 10, 0, 5],
+                       "categoria": ["harina", "harina", "fideos", "fideos"]})
+    y = np.log1p([1000, 2000, 4000, 10000])
+    pre = ColumnTransformer([("cat", OneHotEncoder(handle_unknown="ignore"), ["categoria"])],
+                            remainder="passthrough")
+    joblib.dump(Pipeline([("pre", pre), ("m", LinearRegression())]).fit(df, y), tmp_path / "m.pkl")
+    pred = modelo.predecir(modelo.cargar("m.pkl", carpeta=tmp_path), df, modelo.FEATURES_ML)
+    assert pred.round(0).tolist() == [1000, 2000, 4000, 10000]

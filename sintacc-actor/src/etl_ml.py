@@ -1,7 +1,7 @@
 """ETL del Dataset 1: Mercado Libre (insumos sin TACC).
 
-Orden acordado con Data Science (16/11):
-limpieza -> sorteo del 10 % -> exclusiones -> lectura del título -> correcciones manuales
+Orden acordado con Data Science (16/11 y 18/11):
+limpieza -> sorteo del 10 % (por categoría de búsqueda) -> categoría de Mercado Libre -> exclusiones -> lectura del título -> correcciones manuales
 -> venta por mayor -> peso faltante (mediana de la unidad de la categoría, solo con el 90 %)
 -> precio por kg -> marca de outliers (límites fijos).
 """
@@ -18,11 +18,23 @@ def limpiar(crudo: pd.DataFrame) -> pd.DataFrame:
     """Unifica categorías, saca duplicados y deja solo los insumos del proyecto."""
     ml = crudo.copy()
     ml["idPublicacion"] = ml["idPublicacion"].astype(str).str.strip()
-    ml["categoria"] = ml["categoria"].astype(str).str.replace(r"\d", "", regex=True).str.strip()
+    ml["categoria_busqueda"] = ml["categoria"].astype(str).str.replace(r"\d", "", regex=True).str.strip()
     ml = ml.drop_duplicates(subset="idPublicacion")
     ml = ml[ml["produtoDomainID"].isin(reglas.CATEGORIAS_ML_OK)]
     ml = ml[~ml["articuloTitulo"].str.lower().str.contains(reglas.EXCLUIR_ML)]
     return ml.reset_index(drop=True)
+
+
+def categorizar(ml: pd.DataFrame) -> pd.DataFrame:
+    """Categoría del producto según Mercado Libre (produtoDomainID) + féculas forzadas a harina (DS, 18/11).
+
+    Se aplica después del sorteo: el 90/10 se hace con la categoría de búsqueda.
+    """
+    ml = ml.copy()
+    ml["categoria"] = ml["produtoDomainID"].map(reglas.CATEGORIA_POR_DOMINIO)
+    forzada = ml["idPublicacion"].map(reglas.CATEGORIA_FORZADA)
+    ml["categoria"] = forzada.fillna(ml["categoria"])
+    return ml
 
 
 def excluir(ml: pd.DataFrame) -> pd.DataFrame:
@@ -88,7 +100,7 @@ def crear_features(ml: pd.DataFrame) -> pd.DataFrame:
     ml["outlier_precio_kg"] = (~ml["precio_por_kg"].between(bajo, alto)).astype(int)
 
     columnas = [
-        "idPublicacion", "articuloTitulo", "categoria", "muestra", "precio",
+        "idPublicacion", "articuloTitulo", "categoria", "categoria_busqueda", "muestra", "precio",
         # features del modelo (5): peso_log, unidades_log, envio_gratis, descuento_pct, categoria
         "peso_log", "unidades_log", "envio_gratis", "descuento_pct",
         # columnas que el dashboard necesita aunque no sean features (Bloque 5, punto 9)
@@ -102,4 +114,4 @@ def crear_features(ml: pd.DataFrame) -> pd.DataFrame:
 def procesar(crudo: pd.DataFrame) -> pd.DataFrame:
     limpio = limpiar(crudo)
     limpio["muestra"] = sortear(limpio, reglas.ESTRATOS_ML)
-    return crear_features(excluir(limpio))
+    return crear_features(excluir(categorizar(limpio)))

@@ -23,6 +23,26 @@ CATEGORIAS_ML_OK = [
     "MLA-BREAD_CRUMBS", "MLA-BREADS", "MLA-FLOUR",
 ]
 
+# Categoría del producto = clasificación de Mercado Libre (produtoDomainID), no la palabra de
+# búsqueda (DS, 18/11). La búsqueda mete ruido: fécula y harina de arveja caían en "pan",
+# pasta Matarazzo en "harina". El sorteo 90/10 sigue usando la categoría de búsqueda
+# (categoria_busqueda), para que el 10 % reservado sea el mismo que en el Colab.
+CATEGORIA_POR_DOMINIO = {
+    "MLA-PASTAS": "fideos",
+    "MLA-FLOUR": "harina",
+    "MLA-BREADS": "pan",
+    "MLA-SALTY_PREMIXES": "premezcla",
+    "MLA-SWEET_PREMIXES": "premezcla",
+    "MLA-BREAD_CRUMBS": "rebozador",
+}
+# Féculas que Mercado Libre clasifica en otro dominio: van a harina (DS, 18/11)
+CATEGORIA_FORZADA = {
+    "MLA1345326206": "harina",
+    "MLA1341298989": "harina",
+    "MLA1373699734": "harina",
+    "MLA1336027535": "harina",
+}
+
 # Productos fuera de alcance aunque estén en esas categorías
 EXCLUIR_ML = ("pancake|omelette|falafel|levadura|huevo en polvo|alfajor|"
               "hamburguesa|buñuelo|pancho|salchicha")
@@ -76,7 +96,7 @@ LIMITES_PRECIO_KG = {
 # Sorteo al azar con semilla fija, dentro de cada grupo, igual que en el Colab.
 SEMILLA = 42
 FRACCION_RESERVA = 0.10
-ESTRATOS_ML = ["categoria"]
+ESTRATOS_ML = ["categoria_busqueda"]  # el sorteo usa la categoría de búsqueda (igual que el Colab)
 ESTRATOS_MAPS = ["provincia", "sin_tacc_confirmado"]
 
 # ---------------------------------------------------------------- Google Maps
@@ -110,3 +130,7 @@ SEMAFORO_ROJO = 1 / (1 + SEMAFORO_VERDE) - 1   # ≈ +33 %: cara
 # Si un grupo (categoría + tipo de venta) tiene menos publicaciones que esto,
 # se usa la mediana de toda la categoría.
 SEMAFORO_MIN_GRUPO = 5
+
+# Modelo de Maps (complementario): un local es "por encima de lo esperado" si tiene al menos el
+# doble de reseñas que las que predice el modelo (y "por debajo" si tiene la mitad o menos).
+POPULARIDAD_ALTA = 2.0

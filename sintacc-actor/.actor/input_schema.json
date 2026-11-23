@@ -19,6 +19,21 @@
             ],
             "default": "analytics"
         },
+        "metodo": {
+            "title": "Método del semáforo (inference)",
+            "type": "string",
+            "editor": "select",
+            "description": "modelo = precio esperado por el Random Forest de DS (modelos/modelo_ml.pkl) y popularidad de locales (modelos/modelo_maps.pkl). mediana = plan B sin modelo (precio/kg contra la mediana de su categoría).",
+            "enum": [
+                "modelo",
+                "mediana"
+            ],
+            "enumTitles": [
+                "Modelo de DS (recomendado)",
+                "Mediana por categoría (plan B)"
+            ],
+            "default": "modelo"
+        },
         "source": {
             "sectionCaption": "Fuente de datos",
             "title": "Fuente",

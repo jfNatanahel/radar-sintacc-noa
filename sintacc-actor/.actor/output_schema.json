@@ -7,6 +7,11 @@
             "title": "Semáforo de compra (inference)",
             "template": "{{links.apiDefaultDatasetUrl}}/items?view=insights"
         },
+        "popularidad": {
+            "type": "string",
+            "title": "Popularidad de locales (inference, modelo Maps)",
+            "template": "{{links.apiDefaultDatasetUrl}}/items?view=popularidad"
+        },
         "productos": {
             "type": "string",
             "title": "Publicaciones de Mercado Libre (analytics)",

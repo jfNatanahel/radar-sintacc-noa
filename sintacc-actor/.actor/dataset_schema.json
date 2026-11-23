@@ -13,6 +13,7 @@
                     "categoria",
                     "venta_por_mayor",
                     "precio",
+                    "precio_esperado",
                     "precio_por_kg",
                     "referencia_kg",
                     "diferencia_pct",
@@ -61,6 +62,10 @@
                     },
                     "motivo": {
                         "label": "Motivo"
+                    },
+                    "precio_esperado": {
+                        "label": "Precio esperado ($)",
+                        "format": "number"
                     }
                 }
             }
@@ -216,6 +221,51 @@
                     "resenas_mediana": {
                         "label": "Mediana reseñas",
                         "format": "number"
+                    }
+                }
+            }
+        },
+        "popularidad": {
+            "title": "Popularidad de locales (modelo Maps)",
+            "description": "Filas con tabla = popularidad. Reseñas reales contra las esperadas por el modelo.",
+            "transformation": {
+                "fields": [
+                    "tabla",
+                    "title",
+                    "provincia",
+                    "tipo_local",
+                    "grupo_sin_tacc",
+                    "resenas",
+                    "resenas_esperadas",
+                    "razon_resenas",
+                    "popularidad",
+                    "placeId",
+                    "fecha_corrida"
+                ]
+            },
+            "display": {
+                "component": "table",
+                "properties": {
+                    "title": {
+                        "label": "Local"
+                    },
+                    "grupo_sin_tacc": {
+                        "label": "Sin TACC"
+                    },
+                    "resenas": {
+                        "label": "Reseñas",
+                        "format": "number"
+                    },
+                    "resenas_esperadas": {
+                        "label": "Reseñas esperadas",
+                        "format": "number"
+                    },
+                    "razon_resenas": {
+                        "label": "Real / esperado",
+                        "format": "number"
+                    },
+                    "popularidad": {
+                        "label": "Popularidad"
                     }
                 }
             }

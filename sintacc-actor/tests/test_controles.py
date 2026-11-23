@@ -20,7 +20,7 @@ def test_controles_16_11():
     maps, _ = etl_maps.procesar(pd.read_csv(MAPS_CSV, low_memory=False))
     assert eda.controles(ml, maps) == {
         "productos_total": 831, "productos_trabajo": 748, "productos_reservados": 83,
-        "trabajo_venta_por_mayor": 91, "trabajo_peso_imputado": 85, "trabajo_outlier_precio_kg": 19,
+        "trabajo_venta_por_mayor": 91, "trabajo_peso_imputado": 85, "trabajo_outlier_precio_kg": 16,  # 19 antes de la categoría de ML (DS, 18/11)
         "locales_total": 407, "locales_trabajo": 366, "locales_reservados": 41,
         "trabajo_sin_tacc_confirmado": 10, "trabajo_sin_tacc_busqueda": 90,
     }

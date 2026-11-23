@@ -1,0 +1,140 @@
+{
+  "ml": {
+    "mejor": "Ensamble 2 · Gradient Boosting",
+    "n": {
+      "trabajo": 748,
+      "reservado": 83
+    },
+    "tabla": {
+      "Clásico 1 · Ridge": {
+        "cv": {
+          "r2_log": 0.793,
+          "mae": 7015.2,
+          "rmse": 16312.7
+        },
+        "reservado": {
+          "r2_log": 0.694,
+          "mae": 6055.2,
+          "rmse": 11316.9
+        }
+      },
+      "Clásico 2 · Árbol de decisión": {
+        "cv": {
+          "r2_log": 0.82,
+          "mae": 5966.1,
+          "rmse": 13523.2
+        },
+        "reservado": {
+          "r2_log": 0.77,
+          "mae": 4665.6,
+          "rmse": 7867.5
+        }
+      },
+      "Ensamble 1 · Random Forest": {
+        "cv": {
+          "r2_log": 0.84,
+          "mae": 5087.5,
+          "rmse": 11742.0
+        },
+        "reservado": {
+          "r2_log": 0.744,
+          "mae": 4565.3,
+          "rmse": 8176.7
+        }
+      },
+      "Ensamble 2 · Gradient Boosting": {
+        "cv": {
+          "r2_log": 0.845,
+          "mae": 5066.5,
+          "rmse": 10728.2
+        },
+        "reservado": {
+          "r2_log": 0.73,
+          "mae": 4615.4,
+          "rmse": 7772.6
+        }
+      },
+      "Red · MLP": {
+        "cv": {
+          "r2_log": 0.763,
+          "mae": 7336.5,
+          "rmse": 17888.1
+        },
+        "reservado": {
+          "r2_log": 0.646,
+          "mae": 8531.4,
+          "rmse": 27886.6
+        }
+      }
+    }
+  },
+  "maps": {
+    "mejor": "Ensamble 1 · Random Forest",
+    "n": {
+      "trabajo": 366,
+      "reservado": 41
+    },
+    "tabla": {
+      "Clásico 1 · Ridge": {
+        "cv": {
+          "r2_log": 0.743,
+          "mae": 242.1,
+          "rmse": 662.9
+        },
+        "reservado": {
+          "r2_log": 0.786,
+          "mae": 372.6,
+          "rmse": 1677.4
+        }
+      },
+      "Clásico 2 · Árbol de decisión": {
+        "cv": {
+          "r2_log": 0.73,
+          "mae": 315.5,
+          "rmse": 1306.8
+        },
+        "reservado": {
+          "r2_log": 0.876,
+          "mae": 183.1,
+          "rmse": 438.0
+        }
+      },
+      "Ensamble 1 · Random Forest": {
+        "cv": {
+          "r2_log": 0.768,
+          "mae": 315.0,
+          "rmse": 1311.4
+        },
+        "reservado": {
+          "r2_log": 0.891,
+          "mae": 241.8,
+          "rmse": 861.1
+        }
+      },
+      "Ensamble 2 · Gradient Boosting": {
+        "cv": {
+          "r2_log": 0.748,
+          "mae": 334.0,
+          "rmse": 1383.0
+        },
+        "reservado": {
+          "r2_log": 0.861,
+          "mae": 360.8,
+          "rmse": 1610.8
+        }
+      },
+      "Red · MLP": {
+        "cv": {
+          "r2_log": 0.748,
+          "mae": 232.6,
+          "rmse": 557.9
+        },
+        "reservado": {
+          "r2_log": 0.843,
+          "mae": 304.4,
+          "rmse": 1131.1
+        }
+      }
+    }
+  }
+}

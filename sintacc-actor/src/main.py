@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 from apify import Actor
 
-from . import eda, etl_maps, etl_ml, extraer, inferencia, salida
+from . import eda, etl_maps, etl_ml, extraer, inferencia, modelo, salida
 
 ZONA = ZoneInfo("America/Argentina/Buenos_Aires")  # la fecha de corrida es la de Argentina, no UTC
 STORE_PUBLICO = "radar-sintacc"  # nombre fijo: Google Sheets (IMPORTDATA) lee siempre la misma URL
@@ -57,24 +57,43 @@ async def analytics(entrada: dict) -> None:
 async def inference(entrada: dict) -> None:
     inicio = time.time()
     fecha = datetime.now(ZONA).strftime("%Y-%m-%d")
+    usar_modelo = entrada.get("metodo", "modelo") == "modelo"
 
     # Reusa los datos del Producto 1: la última salida de "analytics" (por el SDK, R1)
-    productos = await extraer.leer_csv_store("productos.csv", store=STORE_PUBLICO,
-                                             ayuda="Correr primero la operación 'analytics'.")
-    insights = inferencia.semaforo(productos)
+    ayuda = "Correr primero la operación 'analytics'."
+    productos = await extraer.leer_csv_store("productos.csv", store=STORE_PUBLICO, ayuda=ayuda)
+
+    # Semáforo de compra: modelo de DS (R2: no entrena, R3: carga de modelos/) o plan B
+    esperado = None
+    if usar_modelo:
+        pipeline = modelo.cargar(modelo.MODELO_ML)
+        esperado = modelo.predecir(pipeline, productos, modelo.FEATURES_ML)
+    insights = inferencia.semaforo(productos, precio_esperado=esperado)
     resumen = inferencia.resumen(insights)
     resumen["fecha_corrida"] = fecha
     Actor.log.info(f"Semáforo ({resumen['metodo']}): {resumen['total']}")
 
-    await Actor.push_data(salida.filas_tabla(insights, "insights", fecha))
+    filas = salida.filas_tabla(insights, "insights", fecha)
+    store = await Actor.open_key_value_store(name=STORE_PUBLICO)
+
+    # Modelo complementario de Maps: popularidad real contra la esperada
+    if usar_modelo:
+        locales = await extraer.leer_csv_store("locales.csv", store=STORE_PUBLICO, ayuda=ayuda)
+        resenas = modelo.predecir(modelo.cargar(modelo.MODELO_MAPS), locales, modelo.FEATURES_MAPS)
+        popularidad = inferencia.popularidad_locales(locales, resenas)
+        resumen["popularidad_locales"] = inferencia.conteo_popularidad(popularidad)
+        filas += salida.filas_tabla(popularidad, "popularidad", fecha)
+        await Actor.set_value("popularidad.csv", popularidad.to_csv(index=False), content_type="text/csv")
+        await store.set_value("popularidad.csv", popularidad.to_csv(index=False), content_type="text/csv")
+        Actor.log.info(f"Popularidad de locales (modelo Maps): {resumen['popularidad_locales']}")
+
+    await Actor.push_data(filas)
     await Actor.set_value("RESUMEN_INFERENCE", resumen)
     await Actor.set_value("insights.csv", insights.to_csv(index=False), content_type="text/csv")
-
-    store = await Actor.open_key_value_store(name=STORE_PUBLICO)
     await store.set_value("insights.csv", insights.to_csv(index=False), content_type="text/csv")
     await store.set_value("RESUMEN_INFERENCE", resumen)
 
-    await Actor.set_status_message(f"Listo: semáforo de {len(insights)} publicaciones "
+    await Actor.set_status_message(f"Listo ({resumen['metodo']}): semáforo de {len(insights)} publicaciones "
                                    f"{resumen['total']} en {time.time() - inicio:.1f} s")
 
 

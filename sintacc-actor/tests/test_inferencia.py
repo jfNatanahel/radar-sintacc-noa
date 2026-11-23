@@ -23,6 +23,7 @@ def _productos() -> pd.DataFrame:
     df = pd.DataFrame(filas, columns=["idPublicacion", "categoria", "venta_por_mayor", "muestra",
                                       "precio_por_kg", "peso_imputado", "outlier_precio_kg"])
     df["articuloTitulo"] = "Harina " + df["idPublicacion"]
+    df["peso_total_kg"] = 1.0
     df["precio"] = df["precio_por_kg"]
     return df
 
@@ -66,3 +67,25 @@ def test_resumen_se_puede_guardar_como_json():
     r = inferencia.resumen(s)
     assert r["total"]["verde"] >= 1
     json.dumps(r)  # Actor.set_value guarda JSON
+
+
+def test_con_modelo_la_referencia_es_el_precio_esperado():
+    ml = _productos()
+    esperado = pd.Series(10_000.0, index=ml.index)   # el modelo espera $10.000 para todas
+    s = inferencia.semaforo(ml, precio_esperado=esperado).set_index("idPublicacion")
+    assert (s["metodo"] == inferencia.METODO_MODELO).all()
+    assert s.loc["VERDE", "semaforo"] == "verde"           # 7.000 contra 10.000: -30 %
+    assert s.loc["VERDE", "diferencia_pct"] == -30.0
+    assert "esperado" in s.loc["VERDE", "motivo"]
+    assert s.loc["IMP", "semaforo"] == "revisar"           # peso estimado sigue sin recomendarse
+    assert inferencia.resumen(s.reset_index())["metodo"] == inferencia.METODO_MODELO
+
+
+def test_popularidad_de_locales():
+    maps = pd.DataFrame({"placeId": ["a", "b", "c"], "title": ["A", "B", "C"], "provincia": "Salta",
+                         "tipo_local": "restaurante", "grupo_sin_tacc": "ninguno", "muestra": "trabajo",
+                         "resenas": [300, 100, 20]})
+    p = inferencia.popularidad_locales(maps, pd.Series([100.0, 100.0, 100.0])).set_index("placeId")
+    assert p.loc["a", "popularidad"] == "por encima de lo esperado"
+    assert p.loc["b", "popularidad"] == "acorde a lo esperado"
+    assert p.loc["c", "popularidad"] == "por debajo de lo esperado"
